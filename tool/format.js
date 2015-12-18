@@ -2,25 +2,24 @@ var S = require('string');
 var he = require('he');
 var dateFormat = require('dateformat');
 var request = require('request');
-var fs = require('fs');
+var fs = require('graceful-fs');
 
-var service = JSON.parse(fs.readFileSync('./service/key_manage'));
-var key = service["data"][0]["key"];
-function storeinfo(now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
+function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
     var now = new Date();
     var date = dateFormat(now, "yyyymmdd_HHMM");
     var title,source,url,time,body,message_tag="";
     var result="";
-    var i=0;
+    var i=0,j=0;
     while(i<feeds.length){
         //time compare
-        console.log("updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
-        if(feeds[i]["updated_time"]<=end_flag && end_flag!="undefined+undefined"){
+        //console.log("updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
+        if(feeds[i]["updated_time"]<=end_flag && end_flag!=0){
+            console.log("updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
             console.log("=>end");
             fin("end");
             return ;
         }
-        console.log("=>pass");
+        //console.log("=>pass");
         title = feeds[i]["from"].name;
         if(!feeds[i]["link"]){
             body="";
@@ -50,11 +49,21 @@ function storeinfo(now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
             message_len = feeds[i]["message_tags"].length;
             message_tag="";
             for(j=0;j<message_len;j++){
+                /*
+                checkType(feeds[i]["message_tags"][j]["type"],function(status){
+                    if(status=="ok"){
+                    
+                    }
+                    else{
+                        
+                    }
+                });
+                */
                 if(j!=0){
-                    message_tag += "\n"+feeds[i]["message_tags"][j]["id"]+",0";
+                    message_tag += "\n"+feeds[i]["message_tags"][j]["id"]+",y";
                 }
                 else{
-                    message_tag = feeds[i]["message_tags"][j]["id"]+",0";
+                    message_tag = feeds[i]["message_tags"][j]["id"]+",y";
                 }
                 //console.log("i="+i+" message_len:"+message_len+" message_tag:"+message_tag);
             }
@@ -63,14 +72,14 @@ function storeinfo(now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         i++;
     }
     if(message_tag!="" && typeof message_tag != "undefined"){
-        console.log("link to "+'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/0/?q='+message_tag);
+        //console.log("link to "+'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/0/?q='+message_tag);
         request({
-            uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/0/?q='+message_tag,
+            uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/y/?q='+message_tag,
         },function(error, response, body){
             if(error){
                 console.log(error);
             }
-            console.log("body:"+body);
+            console.log("status=>"+body);
         });
     }
     
