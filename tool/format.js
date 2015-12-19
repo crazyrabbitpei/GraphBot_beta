@@ -74,7 +74,7 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
     if(message_tag!="" && typeof message_tag != "undefined"){
         //console.log("link to "+'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/0/?q='+message_tag);
         request({
-            uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/y/?q='+message_tag,
+            uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/new/y/?q='+message_tag,
         },function(error, response, body){
             if(error){
                 console.log(error);

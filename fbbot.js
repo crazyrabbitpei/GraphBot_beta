@@ -124,7 +124,7 @@ function updateidServer(key,id_serverip,id_serverport,id,time,fin)
 {
     var dir = myModule.dir;
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/update/'+id+'/?q='+time
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/update/'+id+'/?q='+time
     },function(error, response, body){
         if(error){
             fs.appendFile(dir+"/err_log","--\n["+id+"] updateidServer:"+error,function(){});
@@ -213,7 +213,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag){
 function isCrawled(key,id_serverip,id_serverport,time,id,fin){
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/search/'+id+'/');
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/search/'+id+'/'
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/search/'+id+'/'
     },function(error, response, body){
         if(error){
             console.log("bot can't link to manager:"+error);
@@ -225,7 +225,7 @@ function isCrawled(key,id_serverip,id_serverport,time,id,fin){
             fin("error",0,0);
             return;
         }
-        else if(body=="y"){//first crawled
+        else if(body=="y"||body=="c"){//first crawled
             body=0;
         }
         parts = time.split("+");

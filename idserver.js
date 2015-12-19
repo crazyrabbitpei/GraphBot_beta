@@ -31,6 +31,7 @@ var writeidInterval = service['writeidInterval'];
 var filename = service['idmanage_filename'];
 var url_mapSize = service['size'];
 var map_size=0;//update with url map(cronjob), using clearID function
+var all_crawled=0;
 //var apiip = "localhost";
 
 
@@ -67,7 +68,7 @@ new CronJob(writeidInterval,clearID, null, true, 'Asia/Taipei');
         - q='y':new id
         - q=anytime:update timestamp
 --------------------------------------*/
-app.get('/fbjob/:key/v1.0/:action(new|delete|search|update)/:id/',function(req,res){
+app.get('/fbjob/:key/v1.0/data/:action(new|delete|search|update)/:id/',function(req,res){
     var key = req.params.key;
     if(!map_botkey.has(key)){
         res.send("illegal request");
@@ -82,7 +83,7 @@ app.get('/fbjob/:key/v1.0/:action(new|delete|search|update)/:id/',function(req,r
     }
     if(action=="new"||action=="delete"||action=="update") {
         console.log("--\naction:"+action);
-        manageid(str,action,id,function(status){
+        datamanageid(str,action,id,function(status){
             res.send(action+":"+status);
         });       
 
@@ -90,6 +91,26 @@ app.get('/fbjob/:key/v1.0/:action(new|delete|search|update)/:id/',function(req,r
     else if(action=="search"){
         searchid(id,res);
     }
+});
+/*---------for url manage--------------
+ * for seed bot
+    - update a id:update/id/?q=c
+    - q="c" => reprsent "crawled"
+        - if map_key(id) has a timestamp then do not upate "c"
+--------------------------------------*/
+app.get('/fbjob/:key/v1.0/seed/update/:id/',function(req,res){
+    var key = req.params.key;
+    if(!map_botkey.has(key)){
+        res.send("illegal request");
+        return;
+    }
+    
+    var str = req.query.q;
+    var id = req.params.id;//only for update action
+    seedmanageid(str,id,function(status){
+        res.send("update:"+id+","+status);
+    });       
+
 });
 /*------insert new seed--------*/
 /*
@@ -105,6 +126,7 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
         return;
     }
     if(map_size>=url_mapSize){
+        console.log("map_size>=url_mapSize:"+map_size);
         res.send("full");
         return;
     }
@@ -160,6 +182,37 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/',function(req,res){
     var result="";
     var index=0;
     var end_index=0;
+    
+    var nc_count=0,c_count=0;
+    var values = map_key.values();
+    for(i=0;i<values.length;i++){
+        if(type=="data"){
+            if(values[i]=="y"){
+                nc_count++;
+            }
+            else{
+                c_count++;
+            }
+        }
+        if(type=="seed"){
+            if(values[i]=="y"){
+                nc_count++;
+            }
+            else{
+                c_count++;
+            }
+        }
+    }
+    if(num>nc_count){
+        num = nc_count;
+    }
+    else if(nc_count==0){
+        all_crawled=1;
+    }
+    else if(nc_count!=0){
+        all_crawled=0;
+    }
+
     if(type=="seed"){
         if((from_seed_idIndex+num)>total_num){
             from_seed_idIndex=0;
@@ -191,51 +244,122 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/',function(req,res){
         res.send("none");
         return;
     }
+    //check list status:how many url hasn't crawled
+
     var j=0;
     map_key.forEach(function(value, key) {
+            if(num==0){
+                return;
+            }
             if(type=="seed"){
-                if(index>=from_seed_idIndex&&value=="y"){
-                    if(j!=0){
-                        result+=","+key;
+                if(all_crawled==0){
+                    if(index>=from_seed_idIndex&&value=="y"){
+                        if(j!=0){
+                            result+=","+key;
+                        }
+                        else{
+                            result+=key;
+                        }
+                        j++;
                     }
-                    else{
-                        result+=key;
+                }
+                if(all_crawled==1){
+                    if(index>=from_seed_idIndex){
+                        if(j!=0){
+                            result+=","+key;
+                        }
+                        else{
+                            result+=key;
+                        }
+                        j++;
                     }
-                    j++;
                 }
             }
             else if(type=="data"){
-                if(index>=from_data_idIndex&&value=="y"){
-                    if(j!=0){
-                        result+=","+key;
+                if(all_crawled==0){
+                    if(index>=from_data_idIndex&&value=="y"){
+                        if(j!=0){
+                            result+=","+key;
+                        }
+                        else{
+                            result+=key;
+                        }
+                        j++;
                     }
-                    else{
-                        result+=key;
+                }
+                if(all_crawled==1){
+                    if(index>=from_data_idIndex){
+                        if(j!=0){
+                            result+=","+key;
+                        }
+                        else{
+                            result+=key;
+                        }
+                        j++;
                     }
-                    j++;
                 }
             }
             index++;
             if(j==num){
-                console.log("get url num = request num:"+j);
+                num=0;
+                console.log("["+index+"]get url num = request num:"+j);
                 if(type=="seed"){
                     if(index>=from_seed_idIndex){
-                        from_seed_idIndex += index;
+                        from_seed_idIndex = index;
                         console.log("next index:"+from_seed_idIndex);
                     }
                 }
                 else if(type=="data"){
                     if(index>=from_data_idIndex){
-                        from_data_idIndex += index;
+                        from_data_idIndex = index;
                         console.log("next index:"+from_data_idIndex);
                     }
                 }
                 res.send(result);
-                num++;
                 return;
             }
-
+            else if(j!=0&&j<num&&index==total_num){
+                console.log("["+index+"]get url num != request num:"+j);
+                if(type=="seed"){
+                    all_crawled=1;
+                }
+                else if(type=="data"){
+                    all_crawled=1;
+                }
+                res.send(result);
+                return;
+            }
     });
+});
+
+//Testing:listing url list
+app.get('/fbjob/:key/v1.0/urllist/:type(seed|data)',function(req,res){
+    var key = req.params.key;
+    var type = req.params.type;
+    var str = req.query.q;
+    var nc_count=0,c_count=0;
+    if(str=="detail"){
+        var values = map_key.values();
+        for(i=0;i<values.length;i++){
+            if(type=="seed"){
+                if(values[i]=="y"){
+                    nc_count++;
+                }
+                else{
+                    c_count++;
+                }
+            }
+            if(type=="data"){
+                if(values[i]!="y"&&values[i]!="c"){
+                    c_count++;
+                }
+                else{
+                    nc_count++;
+                }
+            }
+        }
+        res.send("total:"+values.length+" crawled:"+c_count+" not crawled:"+nc_count);
+    }
 });
 /*(not yet)for new a bot action, bot manager*/
 app.get('/fbjob/:key/oceangaisbot/v1.0/newbot/',function(req,res){
@@ -261,7 +385,25 @@ app.get('/fbjob/:key/grab_list/:action(search|insert|delete)/v1.0/',function(req
     }
 });
 
-function manageid(str,action,id,fin){
+function seedmanageid(str,id,fin){
+
+    console.log(id+","+str+"\n--");
+    if(!map_key.has(id)){
+        //console.log("new:"+id+","+str+"\n--");
+        map_key.set(id,str);
+    }
+    else{
+        if(map_key.get(id)=="y"){//if is cralwed by data bot, couldn't update it because has timestamp
+            //console.log("update:"+id+","+str+"\n--");
+            map_key.set(id,str);
+        }
+    }
+    fin(str);
+
+    return;
+
+}
+function datamanageid(str,action,id,fin){
 
     if(action=="update"){
         console.log(id+","+str+"\n--");
@@ -271,8 +413,9 @@ function manageid(str,action,id,fin){
         else{
             console.log("update:"+id+","+str+"\n--");
         }
-        fin("ok");
         map_key.set(id,str);
+        fin("ok");
+
         return;
     }
     
@@ -361,7 +504,7 @@ function ReadBotID(){
 function clearID(){
     var result="";
     map_key.forEach(function(value, key) {
-        if(value!=-1&&typeof value !="undefined") {
+        if(value!=-1&&typeof value !="undefined"&&typeof key!="undefined") {
             //console.log(key + " : " + value);
             result+=key+","+value+"\n";
         }
