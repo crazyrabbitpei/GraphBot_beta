@@ -75,11 +75,12 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         //console.log("link to "+'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/0/?q='+message_tag);
         request({
             uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/new/y/?q='+message_tag,
+            timeout:10000
         },function(error, response, body){
             if(error){
                 console.log(error);
             }
-            console.log("status=>"+body);
+            console.log("url update status=>"+body);
         });
     }
     

@@ -66,7 +66,8 @@ function requireSeed(num){
     socket_num++;
     //console.log("socket_num:"+socket_num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seed/?q='+num
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seed/?q='+num,
+        timeout: 10000
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
         if(body=="none"){
@@ -116,7 +117,8 @@ function getSeed(groupid,token,fin){
     //console.log("socket_num:"+socket_num);
     //console.log("graph_reauest:"+graph_request);
     request({
-        uri:"https://graph.facebook.com/"+version+"/"+groupid+"/likes?access_token="+token
+        uri:"https://graph.facebook.com/"+version+"/"+groupid+"/likes?access_token="+token,
+        timeout: 10000
     },function(error, response, body){
         try{
             feeds = JSON.parse(body);
@@ -132,6 +134,7 @@ function getSeed(groupid,token,fin){
                 if(feeds['error']['message']=="(#4) Application request limit reached"){
                     console.log("Application request limit reached:"+graph_request);
                     job.stop();
+                    process.exit(0);
                 }
                 fin("error");
                 return;
@@ -162,7 +165,8 @@ function getSeed(groupid,token,fin){
 function updateidServer(id,status)
 {
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/seed/update/'+id+'/?q='+status
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/seed/update/'+id+'/?q='+status,
+        timeout: 10000
     },function(error, response, body){
         if(error){
             job.stop();
@@ -180,6 +184,7 @@ function updateidServer(id,status)
             fs.appendFile("./err_log","--\n["+id+"] ["+socket_num+"] updateidServer:illegal request",function(){});
             console.log("["+id+"] updateidServer:illegal request");
             job.stop();
+            process.exit(0);
         }
     });
 }
@@ -189,7 +194,8 @@ function insertSeed(id,fin){
     socket_num++;
     //console.log("socket_num:"+socket_num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?q='+id
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?q='+id,
+        timeout: 10000
     },function(error, response, body){
         if(error){
 
@@ -211,6 +217,7 @@ function insertSeed(id,fin){
             fs.appendFile("./err_log","--\n["+id+"] ["+socket_num+"] insertSeed:"+body,function(){});
             console.log("insertSeed:"+body);
             job.stop();
+            process.exit(0);
             fin("error");
             return;
         }
@@ -223,9 +230,13 @@ function insertSeed(id,fin){
         else if(body=="full"){
             console.log("url map is full=>cronjob stop:"+body);
             job.stop();
+            process.exit(0);
+            fin("full");
         }
-        console.log("insertSeed=>new:"+id);
-        fin("new");
+        else{
+            console.log("insertSeed=>new:"+id);
+            fin("new");
+        }
     });
 }
 

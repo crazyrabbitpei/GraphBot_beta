@@ -61,7 +61,7 @@ catch (err) {
     process.exit(9);
 }
 finally{
-    var request_num=100;
+    var request_num=10;
     get_accessToken(function(token){
         console.log("token:"+token);
         if(token=="error"){
@@ -112,7 +112,8 @@ finally{
 function requireSeed(num,fin){
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/?q='+num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/data/?q='+num
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/data/?q='+num,
+        timeout: 10000
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
         if(error){
@@ -128,6 +129,7 @@ function get_accessToken(fin){
     //get access token
     request({
         uri:"https://graph.facebook.com/"+version+"/oauth/access_token?client_id="+appid+"&client_secret="+yoyo+"&grant_type=client_credentials",
+        timeout: 10000
     //uri: "https://graph.facebook.com/"+version+"/"+groupid+"/feed?access_token="+accesst+"&limit="+limit,
     },function(error, response, body){
         var token = JSON.parse(body);

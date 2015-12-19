@@ -12,6 +12,7 @@ var storeinfo = require('./tool/format.js');
 var myModule = require('./run');
 
 var count=0;
+var graph_request=0;
 
 function crawlerFB(token,groupid,key,fin){
     //var groupid = myModule.groupid;
@@ -26,13 +27,67 @@ function crawlerFB(token,groupid,key,fin){
     var id_serverport = myModule.id_serverport;
     var now="";
     var date="";
-    //console.log("url:"+"https://graph.facebook.com/"+version+"/"+groupid+"/feed?access_token="+token+"&limit="+limit);
+    graph_request++;
+    request({
+        uri: "https://graph.facebook.com/"+version+"/"+groupid+"/?access_token="+token+"&fields=talking_about_count,likes",
+        timeout:10000
+    },function(error, response, body){
+        if(error){
+            console.log("crawlerFB=>talking_about_count,likes:error");
+            fs.appendFile(dir+"/"+groupid+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
+            return;
+        }
+        else{
+            try{
+                if(typeof body=="undefined"){
+                    setTimeout(function(){
+                        crawlerFB(token,groupid,key,fin);
+                    },10000);
+                }
+                else{
+                    var about = JSON.parse(body);
+                }
+            }
+            catch(e){
+                fs.appendFile(dir+"/"+groupid+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
+            }
+            finally{
+                if(about['error']){
+                    if(feeds['error']['message']=="(#4) Application request limit reached"){
+                        console.log("Application request limit reached:"+graph_request);
+                        process.exit(0);
+                    }
+                    else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
+                        setTimeout(function(){
+                            crawlerFB(token,groupid,key,fin);
+                        },10000);
+                    }
+                    else{
+                        fs.appendFile(dir+"/"+groupid+"/about","id:"+about['id']+"\ntalking_about_count:-1\nlikes:-1\n",function(){});
+                        return;
+                    }
+                }
+                else{
+                    fs.writeFile(dir+"/"+groupid+"/about","id:"+about['id']+"\ntalking_about_count:"+about['talking_about_count']+"\nlikes:"+about['likes']+"\n",function(){});
+                }
+            }
+        }
+    });
+    graph_request++;
     request({
         uri: "https://graph.facebook.com/"+version+"/"+groupid+"/feed?access_token="+token+"&limit="+limit+"&fields="+fields,
+        timeout:30000
     },function(error, response, body){
         //console.log("error:"+error+" body:"+body);
         try{
-            var feeds = JSON.parse(body);
+            if(typeof body=="undefined"){
+                setTimeout(function(){
+                    crawlerFB(token,groupid,key,fin);
+                },10000);
+            }
+            else{
+                var feeds = JSON.parse(body);
+            }
         }
         catch(e){
             console.log("crawlerFB=>error:"+e);
@@ -41,17 +96,32 @@ function crawlerFB(token,groupid,key,fin){
             return;
         }
         finally{
-            if(feeds['error']){
-                console.log("crawlerFB=>feeds['error']");
-                fs.appendFile(dir+"/"+groupid+"/err_log","--\n["+groupid+"] crawlerFB=>feeds['error']:"+body+"\n",function(){});
-                fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
-                updateidServer(key,id_serverip,id_serverport,groupid,-1,function(st){
-                    if(st=="error"){
-                        return;
-                    }
-                });
-                fin("error");
+            if(typeof feeds =="undefined"){
                 return;
+            }
+            if(feeds['error']){
+                if(feeds['error']['message']=="(#4) Application request limit reached"){
+                    console.log("Application request limit reached:"+graph_request);
+                    process.exit(0);
+                }
+                else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
+                    setTimeout(function(){
+                        crawlerFB(token,groupid,key,fin);
+                    },10000);
+                    return;
+                }
+                else{
+                    console.log("crawlerFB=>feeds['error']");
+                    fs.appendFile(dir+"/"+groupid+"/err_log","--\n["+groupid+"] crawlerFB=>feeds['error']:"+body+"\n",function(){});
+                    fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
+                    updateidServer(key,id_serverip,id_serverport,groupid,-1,function(st){
+                        if(st=="error"){
+                            return;
+                        }
+                    });
+                    fin("error");
+                    return;
+                }
             }
             else if(typeof feeds['data']=="undefined"){
                 console.log("crawlerFB error =>feeds['data']");
@@ -124,11 +194,15 @@ function updateidServer(key,id_serverip,id_serverport,id,time,fin)
 {
     var dir = myModule.dir;
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/update/'+id+'/?q='+time
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/update/'+id+'/?q='+time,
+        timeout:10000
     },function(error, response, body){
         if(error){
             fs.appendFile(dir+"/err_log","--\n["+id+"] updateidServer:"+error,function(){});
             console.log("["+id+"] updateidServer:error");
+            setTimeout(function(){
+                updateidServer(key,id_serverip,id_serverport,id,time,fin);
+            },60000);
             fin("error");
         }
         else if(body=="illegal request"){
@@ -155,11 +229,20 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag){
     var id_serverip = myModule.id_serverip;
     var id_serverport = myModule.id_serverport;
 
+    graph_request++;
     request({
         uri:npage,
+        timeout:10000
     },function(error, response, body){
         try{
-            var feeds = JSON.parse(body);
+            if(typeof body=="undefined"){
+                setTimeout(function(){
+                    nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag);
+                },10000);
+            }
+            else{
+                var feeds = JSON.parse(body);
+            }
         }
         catch(e){
             console.log("nextPage=>error"+e);
@@ -168,16 +251,31 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag){
             return;
         }
         finally{
-            if(feeds['error']){
-                console.log("nextPage=>feeds['error']");
-                fs.appendFile(dir+"/"+groupid+"/err_log","--\n["+groupid+"] crawlerFB=>nextPage=>feeds['error']:"+body+"\n",function(){});
-                fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
-                updateidServer(key,id_serverip,id_serverport,groupid,-1,function(st){
-                    if(st=="error"){
-                        return;
-                    }
-                });
+            if(typeof feeds == "undefined"){
                 return;
+            }
+            if(feeds['error']){
+                if(feeds['error']['message']=="(#4) Application request limit reached"){
+                    console.log("Application request limit reached:"+graph_request);
+                    process.exit(0);
+                }
+                else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
+                    setTimeout(function(){
+                        nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag)
+                    },10000);
+                    return;
+                }
+                else{
+                    console.log("nextPage=>feeds['error']");
+                    fs.appendFile(dir+"/"+groupid+"/err_log","--\n["+groupid+"] crawlerFB=>nextPage=>feeds['error']:"+body+"\n",function(){});
+                    fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
+                    updateidServer(key,id_serverip,id_serverport,groupid,-1,function(st){
+                        if(st=="error"){
+                            return;
+                        }
+                    });
+                    return;
+                }
             }
             else if(typeof feeds['data']=="undefined"){
                 console.log("nextPage error =>feeds['data']");
@@ -213,11 +311,15 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag){
 function isCrawled(key,id_serverip,id_serverport,time,id,fin){
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/search/'+id+'/');
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/search/'+id+'/'
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/search/'+id+'/',
+        timeout:10000
     },function(error, response, body){
         if(error){
             console.log("bot can't link to manager:"+error);
             fin("error",0,0);
+            setTimeout(function(){
+                isCrawled(key,id_serverip,id_serverport,time,id,fin);
+            },60000);
             return;
         }
         if(body=="illegal request"){//url request error

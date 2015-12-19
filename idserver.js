@@ -142,17 +142,17 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
             else{
                 result=parts[i];
             }
-            console.log("insert seed:"+result);
         }
     }
     if(parts.length==0){
         if(!map_key.has(seeds)){
             map_key.set(seeds,"y");
             result=seeds;
-            console.log("insert seed:"+result);
+
         }
     }
 
+    console.log("insert seed:"+result);
     res.send(result);
 });
 
