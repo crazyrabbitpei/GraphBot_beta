@@ -26,6 +26,7 @@ try {
     var version = service1['version'];
     var limit = service1['limit'];
     var fields = service1['fields'];
+    var info = service1['info'];
     var dir = service1['dir'];
 
     service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
@@ -42,6 +43,7 @@ try {
     exports.version=version;
     exports.limit=limit;
     exports.fields=fields;
+    exports.info=info;
     exports.dir=dir;
     
     exports.appid=appid;
@@ -61,7 +63,7 @@ catch (err) {
     process.exit(9);
 }
 finally{
-    var request_num=10;
+    var request_num=1;
     get_accessToken(function(token){
         console.log("token:"+token);
         if(token=="error"){

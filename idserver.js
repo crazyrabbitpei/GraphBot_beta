@@ -40,14 +40,27 @@ var from_data_idIndex=0;
 //--read data--
 ReadID();
 ReadBotID();
+
+
+var job = new CronJob({
+    cronTime:writeidInterval,
+    onTick:function(){
+        clearID();
+    },
+    start:false,
+    timeZone:'Asia/Taipei'
+});
+//new CronJob(writeidInterval,clearID, null, true, 'Asia/Taipei');
 //--server process--
 process.on('SIGINT', function () {
     console.log("[Server stop] ["+new Date()+"] http stop at "+apiip+":"+apiport);
+    job.stop();
     process.exit(0);
 
 });
 process.on('SIGTERM', function () {
     console.log("[Server stop] ["+new Date()+"] http stop at "+apiip+":"+apiport);
+    job.stop();
     process.exit(0);
 });
 server.listen(apiport,apiip,function(){
@@ -55,7 +68,7 @@ server.listen(apiport,apiip,function(){
 });
 //----------------
 
-new CronJob(writeidInterval,clearID, null, true, 'Asia/Taipei');
+
 //----------------
 
 /*---------for url manage--------------
@@ -148,11 +161,12 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
         if(!map_key.has(seeds)){
             map_key.set(seeds,"y");
             result=seeds;
-
+            console.log("insert seed:"+result);
         }
     }
-
-    console.log("insert seed:"+result);
+    else if(i>0){
+            console.log("insert seed:"+result);
+    }
     res.send(result);
 });
 
@@ -187,7 +201,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/',function(req,res){
     var values = map_key.values();
     for(i=0;i<values.length;i++){
         if(type=="data"){
-            if(values[i]=="y"){
+            if(values[i]=="y"||values[i]=="c"){
                 nc_count++;
             }
             else{
@@ -277,7 +291,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/',function(req,res){
             }
             else if(type=="data"){
                 if(all_crawled==0){
-                    if(index>=from_data_idIndex&&value=="y"){
+                    if(index>=from_data_idIndex&&(value=="y"||value=="c")){
                         if(j!=0){
                             result+=","+key;
                         }
@@ -470,6 +484,7 @@ function ReadID(){
     lr.on('error', function (err) {
         // 'err' contains error object
         console.log("error:"+err);
+        job.stop();
     });
     lr.on('line', function (line) {
         var part = line.split(",");
@@ -480,7 +495,7 @@ function ReadID(){
     });
     lr.on('end', function () {
         // All lines are read, file is closed now.
-        
+        job.start();
         console.log("read done");
     });
 

@@ -19,6 +19,7 @@ function crawlerFB(token,groupid,key,fin){
     var version = myModule.version;
     var limit = myModule.limit;
     var fields = myModule.fields;
+    var info = myModule.info;
     var dir = myModule.dir;
     var depth = myModule.depth;
     var appid = myModule.appid;
@@ -29,7 +30,7 @@ function crawlerFB(token,groupid,key,fin){
     var date="";
     graph_request++;
     request({
-        uri: "https://graph.facebook.com/"+version+"/"+groupid+"/?access_token="+token+"&fields=talking_about_count,likes",
+        uri: "https://graph.facebook.com/"+version+"/"+groupid+"/?access_token="+token+"&fields="+info,
         timeout:10000
     },function(error, response, body){
         if(error){
@@ -40,6 +41,7 @@ function crawlerFB(token,groupid,key,fin){
         else{
             try{
                 if(typeof body=="undefined"){
+                    console.log("5.");
                     setTimeout(function(){
                         crawlerFB(token,groupid,key,fin);
                     },10000);
@@ -59,16 +61,42 @@ function crawlerFB(token,groupid,key,fin){
                     }
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
                         setTimeout(function(){
+                            console.log("6.");
                             crawlerFB(token,groupid,key,fin);
                         },10000);
                     }
                     else{
-                        fs.appendFile(dir+"/"+groupid+"/about","id:"+about['id']+"\ntalking_about_count:-1\nlikes:-1\n",function(){});
+                        fs.appendFile(dir+"/"+groupid+"/about","id:"+about['id']+"\nlocation:none\ntalking_about_count:-1\nlikes:-1\nwere_here_count:-1\ncategory:none",function(){});
+                        updateidServer(key,id_serverip,id_serverport,groupid,-1,function(st){
+                            if(st=="error"){
+                                return;
+                            }
+                        });
                         return;
                     }
                 }
                 else{
-                    fs.writeFile(dir+"/"+groupid+"/about","id:"+about['id']+"\ntalking_about_count:"+about['talking_about_count']+"\nlikes:"+about['likes']+"\n",function(){});
+                    //was created by fb system
+                    
+                    console.log("is_community_page:"+about['is_community_page']);
+                    if(about['is_community_page']==true){
+                        updateidServer(key,id_serverip,id_serverport,groupid,-1,function(st){
+                            if(st=="error"){
+                                return;
+                            }
+                        });
+                    }
+                    var location="none";
+                    if(typeof about['location'] !="undefined"){
+                        if(typeof about['location']['country']!= "undefined"){
+                            location = about['location']['country'];
+                        }
+                        else if(typeof about['location']['city']!="undefined"){
+                            location = about['location']['city'];
+                        }
+                    }
+
+                    fs.writeFile(dir+"/"+groupid+"/about","id:"+about['id']+"\nlocation:"+location+"\ntalking_about_count:"+about['talking_about_count']+"\nlikes:"+about['likes']+"\nwere_here_count:"+about['were_here_count']+"\ncategory:"+about['category'],function(){});
                 }
             }
         }
@@ -82,6 +110,7 @@ function crawlerFB(token,groupid,key,fin){
         try{
             if(typeof body=="undefined"){
                 setTimeout(function(){
+                    console.log("1.");
                     crawlerFB(token,groupid,key,fin);
                 },10000);
             }
@@ -106,6 +135,7 @@ function crawlerFB(token,groupid,key,fin){
                 }
                 else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
                     setTimeout(function(){
+                        console.log("2.");
                         crawlerFB(token,groupid,key,fin);
                     },10000);
                     return;
@@ -237,6 +267,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag){
         try{
             if(typeof body=="undefined"){
                 setTimeout(function(){
+                    console.log("3.");
                     nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag);
                 },10000);
             }
@@ -261,6 +292,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag){
                 }
                 else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
                     setTimeout(function(){
+                        console.log("4.");
                         nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag)
                     },10000);
                     return;
