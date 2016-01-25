@@ -49,6 +49,7 @@ new CronJob(seed_require_Interval, function() {
     requireSeed(200);
 }, null, true, 'Asia/Taipei');
 */
+/*
 var job = new CronJob({
         cronTime:seed_require_Interval,
         onTick:function(){
@@ -58,15 +59,14 @@ var job = new CronJob({
         timeZone:'Asia/Taipei'
 });
 job.start();
+*/
 
-
+requireSeed(200);
 function requireSeed(num){
-    //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/?q='+num);
-    
     socket_num++;
     //console.log("socket_num:"+socket_num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seed/?q='+num,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seed/Taiwan/?q='+num,
         timeout: 10000
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
@@ -78,46 +78,60 @@ function requireSeed(num){
             console.log("[requireSeed=>body=undefined]");
             return;
         }
-        var ids = body.split(",");
-        for(i=0;i<ids.length;i++){
-            setTimeout(function(){
-                //console.log("insert:"+ids[i]);
-                if(typeof ids[i]!="undefined"){
-                    insertSeed(ids[i],function(status){
-                        //console.log(status);
-                    });
-                }
-            },i*1000);
-
-            //console.log("seed:"+ids[i]);
-            getSeed(ids[i],appid+"|"+yoyo,function(result){
-                if(result!="error"){
-                    //console.log("get seed:"+result);
-                    setTimeout(function(){
-                        if(typeof result!="undefined"){
-                            insertSeed(result,function(status){
-                                //console.log(status);
-                            });
-                        }
-                    },i*1000);
-                }
-                else{
-                    console.log("requireSeed=>getSeed:err_log");
-                    return;
-                }
+    getSeed(body,appid+"|"+yoyo,function(result){
+        if(result!="error"){
+            console.log("=>get seed:"+result+"\n");
+            insertSeed(result,function(stat){
+                console.log(stat);
             });
         }
+        else{
+            console.log("requireSeed=>getSeed:err_log");
+            return;
+        }
+    });
+    /*
+       var ids = body.split(",");
+       for(i=0;i<ids.length;i++){
+       setTimeout(function(){
+//console.log("insert:"+ids[i]);
+if(typeof ids[i]!="undefined"){
+insertSeed(ids[i],function(status){
+//console.log(status);
+});
+}
+},i*1000);
+
+//console.log("seed:"+ids[i]);
+getSeed(ids[i],appid+"|"+yoyo,function(result){
+if(result!="error"){
+    //console.log("get seed:"+result);
+    setTimeout(function(){
+    if(typeof result!="undefined"){
+    insertSeed(result,function(status){
+//console.log(status);
+});
+}
+},i*1000);
+}
+else{
+console.log("requireSeed=>getSeed:err_log");
+return;
+}
+});
+}
+*/
     });
 }
 
 function getSeed(groupid,token,fin){
-    //console.log("url:"+"https://graph.facebook.com/"+version+"/"+groupid+"/likes?access_token="+token);
-
+    console.log("--\nrequest:"+groupid);
+    var i,j,k;
     socket_num++;
     //console.log("socket_num:"+socket_num);
     //console.log("graph_reauest:"+graph_request);
     request({
-        uri:"https://graph.facebook.com/"+version+"/"+groupid+"/likes?access_token="+token,
+        uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields=location,id",
         timeout: 10000
     },function(error, response, body){
         try{
@@ -139,40 +153,69 @@ function getSeed(groupid,token,fin){
                 fin("error");
                 return;
             }
-            setTimeout(function(){
-                //console.log("update:"+groupid+",c");
-                updateidServer(groupid,"c");
-            },1000);
-
+            updateidServer(groupid,"c");
+            
+            var len = Object.keys(feeds).length;
+            var page_name="";
+            var dot_flag=0;
             graph_request++;
-            if(feeds['data'].length!=0){
-                var ids="";
-                for(i=0;i<feeds['data'].length;i++){
-                    if(i!=0){
-                        //ids += ","+feeds['data'][i]['id']+":"+feeds['data'][i]['name'];
-                        ids += ","+feeds['data'][i]['id'];
+            for(j=0;j<len;j++){
+                page_name = Object.keys(feeds)[j];
+                if(feeds[page_name]['data'].length!=0){
+                    dot_flag++;
+                    var ids="";
+                    var loca="none";
+                    for(i=0;i<feeds[page_name]['data'].length;i++){
+                        loca="none";
+                        if(dot_flag==1&&i==0){
+                            ids += feeds[page_name]['data'][i]['id'];
+                            if(typeof feeds[page_name]['data'][i]['location'] !="undefined"){
+                                if(typeof feeds[page_name]['data'][i]['location']['country']!= "undefined"){
+                                    loca = feeds[page_name]['data'][i]['location']['country'];
+                                }
+                                else if(typeof feeds[page_name]['data'][i]['location']['city']!="undefined"){
+                                    loca = feeds[page_name]['data'][i]['location']['city'];
+
+                                }
+
+                            }
+                            ids+=":"+loca;
+                        }
+                        else{
+                            //ids += ","+feeds['data'][i]['id']+":"+feeds['data'][i]['name'];
+                            ids += ","+feeds[page_name]['data'][i]['id'];
+                            if(typeof feeds[page_name]['data'][i]['location'] !="undefined"){
+                                if(typeof feeds[page_name]['data'][i]['location']['country']!= "undefined"){
+                                    loca = feeds[page_name]['data'][i]['location']['country'];
+                                }
+                                else if(typeof feeds[page_name]['data'][i]['location']['city']!="undefined"){
+                                    loca = feeds[page_name]['data'][i]['location']['city'];
+
+                                }
+
+                            }
+                            ids+=":"+loca;
+                        }
                     }
-                    else{
-                        //ids += feeds['data'][i]['id']+":"+feeds['data'][i]['name'];
-                        ids += feeds['data'][i]['id'];
-                    }
+
                 }
-                fin(ids);
+
             }
+            fin(ids);
         }
     });
 }
-function updateidServer(id,status)
+function updateidServer(ids,stat)
 {
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/seed/update/'+id+'/?q='+status,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/seed/update/Taiwan/?q='+stat+'&ids='+ids,
         timeout: 10000
     },function(error, response, body){
         if(error){
             job.stop();
             if(again_flag==0){
-                fs.appendFile("./err_log","--\n["+id+"] ["+socket_num+"] updateidServer:"+error,function(){});
-                console.log("["+id+"] updateidServer:error");
+                fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] updateidServer:"+error,function(){});
+                console.log("["+ids+"] updateidServer:error");
                 again_flag=1;
                 setTimeout(function(){
                     job.start();
@@ -181,27 +224,27 @@ function updateidServer(id,status)
                 },60000);
             }
         }                                                                                                                                      else if(body=="illegal request"){
-            fs.appendFile("./err_log","--\n["+id+"] ["+socket_num+"] updateidServer:illegal request",function(){});
-            console.log("["+id+"] updateidServer:illegal request");
+            fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] updateidServer:illegal request",function(){});
+            console.log("["+ids+"] updateidServer:illegal request");
             job.stop();
             process.exit(0);
         }
     });
 }
-function insertSeed(id,fin){
+function insertSeed(ids,fin){
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?q='+id);
     
     socket_num++;
     //console.log("socket_num:"+socket_num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?q='+id,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?q='+ids,
         timeout: 10000
     },function(error, response, body){
         if(error){
 
             job.stop();
             if(again_flag==0){
-                fs.appendFile("./err_log","--\n["+id+"] ["+socket_num+"] insertSeed:"+error,function(){});
+                fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+error,function(){});
                 console.log("insertSeed:"+error);
                 again_flag=1;
                 setTimeout(function(){
@@ -214,7 +257,7 @@ function insertSeed(id,fin){
             return;
         }
         if(body=="illegal request"){//url request error
-            fs.appendFile("./err_log","--\n["+id+"] ["+socket_num+"] insertSeed:"+body,function(){});
+            fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+body,function(){});
             console.log("insertSeed:"+body);
             job.stop();
             process.exit(0);
@@ -234,8 +277,8 @@ function insertSeed(id,fin){
             fin("full");
         }
         else{
-            console.log("insertSeed=>new:"+id);
-            fin("new");
+            console.log("insertSeed=>new:"+ids+"\n--\n");
+            fin("insert seed:ok");
         }
     });
 }
