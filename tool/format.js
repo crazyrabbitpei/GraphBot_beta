@@ -44,12 +44,12 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         result += "@url:"+url+"\n";
         result += "@time:"+time+"\n";
         result += "@body:"+body;
-        
+        //all feeds are came from api request, not from the post
+        /*
         if(feeds[i]["message_tags"]){
             message_len = feeds[i]["message_tags"].length;
             message_tag="";
             for(j=0;j<message_len;j++){
-                /*
                 checkType(feeds[i]["message_tags"][j]["type"],function(status){
                     if(status=="ok"){
                     
@@ -58,7 +58,6 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
                         
                     }
                 });
-                */
                 if(j!=0){
                     message_tag += "\n"+feeds[i]["message_tags"][j]["id"]+",y";
                 }
@@ -83,7 +82,7 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
             console.log("url update status=>"+body);
         });
     }
-    
+    */
     fin(result);
 }
 exports.storeinfo = storeinfo;
