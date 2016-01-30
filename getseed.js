@@ -237,7 +237,7 @@ function insertSeed(ids,fin){
     socket_num++;
     //console.log("socket_num:"+socket_num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/seed/insert/?ids='+ids,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?ids='+ids,
         timeout: 10000
     },function(error, response, body){
         if(error){

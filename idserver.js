@@ -174,12 +174,12 @@ app.get('/fbjob/:key/v1.0/seed/update/:country?',function(req,res){
 });
 /*------insert new seed--------*/
 /*
- * for seed bot
-    ?q=231,1312...
+ * for seed bot and data bot
+    ?ids=231,1312...
     a set of id
 */
 /*------insert new seed--------*/
-app.get('/fbjob/:key/v1.0/seed/insert/',function(req,res){
+app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
     var i,j;
     var key = req.params.key;
     if(!map_botkey.has(key)){
@@ -271,6 +271,50 @@ app.get('/fbjob/:key/v1.0/seed/insert/',function(req,res){
     res.send(result);
 });
 
+/*------delete seed--------*/
+/*
+ * for seed bot and data bot
+    ?ids=231,1312...
+    a set of id
+*/
+/*------delete seed--------*/
+app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
+    var i,j;
+    var key = req.params.key;
+    if(!map_botkey.has(key)){
+        res.send("illegal request");
+        return;
+    }
+
+    var seeds = req.query.ids;
+    var result="";
+    var parts = seeds.split(",");
+    for(i=0;i<parts.length;i++){
+        if(parts[i]==""){
+            continue;
+        }
+        if(map_key.has(parts[i])){
+            map_key.remove(parts[i]);
+            if(result!=""){
+                result+=","+parts[i];
+            }
+            else{
+                result = parts[i];
+            }
+        }
+        else if(foreign_map_key.has(parts[i])){
+            foreign_map_key.remove(parts[i]);
+            if(result!=""){
+                result+=","+parts[i];
+            }
+            else{
+                result = parts[i];
+            }
+        }
+            
+    }
+    res.send(result);
+});
 /*------get a set of seed to crawler--------*/
 /*
  * for both seed and data bot
@@ -313,14 +357,15 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/:country?',function(req,res){
     var nc_count=0,c_count=0;
     var jump_flag=0;
     var i;
+    console.log("now:"+foreign_from_seed_idIndex);
     for(i=0;i<values.length;i++){
         if(country=="Taiwan"){
-            if(i==from_seed_idIndex&&values[i]!="y"){
+            if(i==from_seed_idIndex&&values[i]=="c"){
                 jump_flag=1;
             }
         }
         else{
-            if(i==foreign_from_seed_idIndex&&values[i]!="y"){
+            if(i==foreign_from_seed_idIndex&&values[i]=="c"){
                 jump_flag=1;
             }
         }
@@ -342,7 +387,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/:country?',function(req,res){
             }
         }
         if(type=="seed"){
-            if(values[i]=="y"){
+            if(values[i]!="c"){
                 if(jump_flag==1){
                     if(country=="Taiwan"){
                         from_seed_idIndex = i;
@@ -359,6 +404,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/:country?',function(req,res){
             }
         }
     }
+    console.log("now:"+jump_flag+" index:"+foreign_from_seed_idIndex);
     if(jump_flag==1&&nc_count!=0){
         if(country=="Taiwan"){
             from_seed_idIndex = 0;
@@ -370,22 +416,29 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/:country?',function(req,res){
     if(num>nc_count){
         num = nc_count;
     }
-    else if(nc_count==0){
+    if(nc_count==0){
         all_crawled=1;
     }
     else if(nc_count!=0){
         all_crawled=0;
     }
     
+    console.log("=>now:"+jump_flag+" index:"+foreign_from_seed_idIndex);
     if(type=="seed"){
         if(country=="Taiwan"){
-            if((from_seed_idIndex+num)>total_num){
-                from_seed_idIndex=0;
+            if((foreign_from_seed_idIndex>=total_num)){
+                foreign_from_seed_idIndex=0;
+            }
+            if((foreign_from_seed_idIndex+num)>=total_num){
+                num = total_num-foreign_from_seed_idIndex;
             }
         }
         else{
-            if((foreign_from_seed_idIndex+num)>total_num){
+            if((foreign_from_seed_idIndex>=total_num)){
                 foreign_from_seed_idIndex=0;
+            }
+            if((foreign_from_seed_idIndex+num)>=total_num){
+                num = total_num-foreign_from_seed_idIndex;
             }
         }
         if(num>total_num){
@@ -448,7 +501,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/:country?',function(req,res){
             }
             if(type=="seed"){
                 if(all_crawled==0){
-                    if(index>=from_seed_idIndex&&value=="y"){
+                    if(index>=from_seed_idIndex&&value!="c"){
                         if(j!=0){
                             result+=","+key;
                         }
@@ -539,7 +592,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(data|seed)/:country?',function(req,res){
             if(type=="seed"){
                 if(all_crawled==0){
                     console.log("(#1)");
-                    if(index>=foreign_from_seed_idIndex&&value=="y"){
+                    if(index>=foreign_from_seed_idIndex&&value!="c"){
                         if(j!=0){
                             result+=","+key;
                         }
@@ -661,7 +714,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seed|data)/:action(list|search)/:country
         }
         for(i=0;i<values.length;i++){
             if(type=="seed"){
-                if(values[i]=="y"){
+                if(values[i]!="c"){
                     nc_count++;
                 }
                 else{
@@ -717,9 +770,9 @@ function updateseedid(country,str,id,fin){
         else{
             if(map_key.get(id)=="y"||map_key.get(id)=="c"){//if is cralwed by data bot, couldn't update it because has timestamp
                 if(str=="-1"){
-                    map_key.remove(id);
+                    //map_key.remove(id);
                     //console.log("delete:"+id+","+str+"\n--");
-                    result = "delete:"+id+","+str+"\n--";
+                    result = "Please use deleteseed API to delete id\n--";
                 }
                 else{
                     result="update:"+id+","+str+"\n--";
@@ -728,7 +781,8 @@ function updateseedid(country,str,id,fin){
             }
             else{
                 if(str=="-1"){
-                    result = "can't delete ["+id+"] from ["+country+"]:must using data bot api to do this because some issue(this id was crawled by data bot and has timestamp)";
+                    //result = "can't delete ["+id+"] from ["+country+"]:must using data bot api to do this because some issue(this id was crawled by data bot and has timestamp)";
+                    result = "Please use deleteseed API to delete id\n--";
 
                 }
             }
@@ -743,9 +797,9 @@ function updateseedid(country,str,id,fin){
         else{
             if(foreign_map_key.get(id)=="y"||foreign_map_key.get(id)=="c"){//if is cralwed by data bot, couldn't update it because has timestamp
                 if(str=="-1"){
-                    foreign_map_key.remove(id);
+                    //foreign_map_key.remove(id);
                     //console.log("delete:"+id+","+str+"\n--");
-                    result = "delete:"+id+","+str+"\n--";
+                    result = "Please use deleteseed API to delete id\n--";
                 }
                 else{
                     result="update:"+id+","+str+"\n--";
@@ -754,8 +808,8 @@ function updateseedid(country,str,id,fin){
             }
             else{
                 if(str=="-1"){
-                    result = "can't delete ["+id+"] from ["+country+"]:must using data bot api to do this because some issue(this id was crawled by data bot and has timestamp)\n--";
-
+                    //result = "can't delete ["+id+"] from ["+country+"]:must using data bot api to do this because some issue(this id was crawled by data bot and has timestamp)\n--";
+                    result = "Please use deleteseed API to delete id\n--";
                 }
             }
         }
@@ -792,9 +846,11 @@ function datamanageid(country,action,ids,fin){
                 }
                 else if(map_key.has(parts_id)){
                     if(parts_status=="-1"){
-                        map_key.remove(parts_id);
-                        console.log("delete:"+parts_id+","+parts_status+"\n--");
-                        stat+="\ndelete id["+parts_id+"] to "+country;
+                        //map_key.remove(parts_id);
+                        //console.log("delete:"+parts_id+","+parts_status+"\n--");
+                        //stat+="\ndelete id["+parts_id+"] to "+country;
+                        stat += "can't delete id ["+parts_id+"], please use deleteseed API to delete id\n--";
+                        continue;
                     }
                     else{
                         console.log("update:"+parts_id+","+parts_status+"\n--");
@@ -813,9 +869,11 @@ function datamanageid(country,action,ids,fin){
                 }
                 else if(foreign_map_key.has(parts_id)){
                     if(parts_status=="-1"){
-                        foreign_map_key.remove(parts_id);
-                        console.log("delete:"+parts_id+","+parts_status+"\n--");
-                        stat+="\ndelete id["+parts_id+"] to "+country;
+                        //foreign_map_key.remove(parts_id);
+                        //console.log("delete:"+parts_id+","+parts_status+"\n--");
+                        //stat+="\ndelete id["+parts_id+"] to "+country;
+                        stat += "can't delete id ["+parts_id+"], please use deleteseed API to delete id\n--";
+                        continue;
                     }
                     else{
                         console.log("update:"+parts_id+","+parts_status+"\n--");
