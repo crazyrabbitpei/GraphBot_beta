@@ -47,10 +47,11 @@ for(seed_id=0;seed_id<seeds.length;seed_id++){
     });
 }
 */
+var require_num=50;
 var job = new CronJob({
         cronTime:seed_require_Interval,
         onTick:function(){
-            requireSeed(50);
+            requireSeed(require_num);
         },
         start:false,
         timeZone:'Asia/Taipei'
@@ -84,8 +85,18 @@ function requireSeed(num){
 
             }
             else{
-                console.log("requireSeed=>getSeed:err_log");
-                return;
+                console.log("requireSeed=>getSeed:"+body);
+                if(require_num!=1){
+                    require_num=1;
+                    job.start();
+                }
+                else{
+                    deleteSeed(body,function(stat){
+                        console.log(stat);
+                        require_num=50;
+                        job.start();
+                    });
+                }
             }
         });
     });
@@ -118,7 +129,7 @@ function getSeed(groupid,token,fin){
                     process.exit(0);
                 }
                 else if(feeds['error']['message'].indexOf("(#100)")!=-1){
-                    
+                    job.stop();
                 }
                 fin("error");
                 return;
@@ -253,7 +264,7 @@ function insertSeed(ids,fin){
             body=0;
             job.stop();
             console.log("old:"+old_check);
-            if(old_check>300){
+            if(old_check>1000){
                 process.exit(0);
             }
             else if(country=="Taiwan"){

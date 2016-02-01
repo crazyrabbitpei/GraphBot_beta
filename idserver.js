@@ -337,8 +337,9 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         return;
     }
     var num = req.query.num;
+    console.log("1.num:"+num);
     var priorty = req.query.priorty;//not yet ,for data/seed priorty. Hasn't crawled first.
-    if(typeof num=="undefined"||isNaN(num)){
+    if(typeof num=="undefined"){
         num=10;
     }
     var values="";
@@ -368,6 +369,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             else{
                 foreign_from_seed_idIndex=i;
             }
+            temp_index++;
         }
         /*not yet*/
         if(country=="Taiwan"){
@@ -384,10 +386,10 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             if(values[i]=="y"||values[i]=="c"){
                 if(jump_flag==1){
                     if(country=="Taiwan"){
-                        from_seed_idIndex = i;
+                        from_data_idIndex = i;
                     }
                     else{
-                        foreign_from_seed_idIndex = i;
+                        foreign_from_data_idIndex = i;
                     }
                     jump_flag=0;
                 }
@@ -442,6 +444,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
             if((from_seed_idIndex+num)>=total_num){
                 num = total_num-from_seed_idIndex;
+                console.log("2.num:"+num+" total_num:"+total_num+" from_seed_idIndex:"+from_seed_idIndex);
             }
         }
         else{
@@ -450,10 +453,12 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
             if((foreign_from_seed_idIndex+num)>=total_num){
                 num = total_num-foreign_from_seed_idIndex;
+                console.log("3.num:"+num+" total_num:"+total_num+" foreign_from_seed_idIndex:"+foreign_from_seed_idIndex);
             }
         }
         if(num>total_num){
             num = total_num;
+            console.log("4.num:"+num);
         }
         console.log("--["+country+"]--\nrequest seed num:"+num);
         if(country=="Taiwan"){
@@ -513,48 +518,57 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             if(type=="seedbot"){
                 if(all_crawled==0){
                     if(index>=from_seed_idIndex&&value!="c"){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-        j++;
+
                     }
                 }
                 if(all_crawled==1){
                     if(index>=from_seed_idIndex){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-                        j++;
                     }
                 }
             }
             else if(type=="databot"){
                 if(all_crawled==0){
                     if(index>=from_data_idIndex&&(value=="y"||value=="c")){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-                        j++;
                     }
                 }
                 if(all_crawled==1){
                     if(index>=from_data_idIndex){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-                        j++;
                     }
                 }
             }
@@ -604,48 +618,56 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                 if(all_crawled==0){
                     //console.log("(#1)");
                     if(index>=foreign_from_seed_idIndex&&value!="c"){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-                        j++;
                     }
                 }
                 if(all_crawled==1){
                     if(index>=foreign_from_seed_idIndex){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-                        j++;
                     }
                 }
             }
             else if(type=="databot"){
                 if(all_crawled==0){
                     if(index>=foreign_from_data_idIndex&&(value=="y"||value=="c")){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-                        j++;
                     }
                 }
                 if(all_crawled==1){
                     if(index>=foreign_from_data_idIndex){
-                        if(j!=0){
-                            result+=","+key;
+                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                            if(j!=0){
+                                result+=","+key;
+                            }
+                            else{
+                                result+=key;
+                            }
+                            j++;
                         }
-                        else{
-                            result+=key;
-                        }
-                        j++;
                     }
                 }
             }
@@ -1037,7 +1059,7 @@ function clearID(){
     var result="";
     var foreign_result="";
     map_key.forEach(function(value, key) {
-        if(value!=-1&&typeof value !="undefined"&&typeof key!="undefined"&&key!="undefined"&&value!="undefined") {
+        if(value.indexOf(" ")==-1&&key.indexOf(" ")==-1&&value!=""&&key!=""&&value!=-1&&typeof value !="undefined"&&typeof key!="undefined"&&key!="undefined"&&value!="undefined") {
             //console.log(key + " : " + value);
             result+=key+","+value+"\n";
         }
