@@ -4,6 +4,7 @@ var LineByLineReader = require('line-by-line');
 var iconv = require('iconv-lite');
 var querystring = require("querystring");
 var fs = require('graceful-fs');
+var S = require('string');
 
 var request = require('request');
 var CronJob = require('cron').CronJob;
@@ -19,6 +20,8 @@ var foreign_map_key  = new HashMap();//to store others location id
 var map_botkey  = new HashMap();//(not yet)
 var map_grabtype  = new HashMap();//(not yet)
 
+var map_tw_address  = new HashMap();//for insertSeed API:search Taiwan address
+
 app.use(bodyParser.json());
 
 app.use(bodyParser.urlencoded({
@@ -32,6 +35,7 @@ var writeidInterval = service['writeidInterval'];
 var filename = service['idmanage_filename'];
 var foreign_filename = service['foreign_idmanage_filename'];
 var url_mapSize = service['size'];
+var tw_address_filename = service['tw_address'];
 var map_size=0;//update with url map(cronjob), using clearID function
 var foreign_map_size=0;//update with url map(cronjob), using clearID function
 var all_crawled=0;
@@ -43,10 +47,10 @@ var from_data_idIndex=0;
 var foreign_from_seed_idIndex=0;
 var foreign_from_data_idIndex=0;
 //--read data--
+ReadTWaddress();
 ReadID();
 ReadForeignID();
 ReadBotID();
-
 
 var job = new CronJob({
     cronTime:writeidInterval,
@@ -372,21 +376,37 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             temp_index++;
         }
         /*not yet*/
-        if(country=="Taiwan"){
-            if(i==from_seed_idIndex&&values[i]=="c"){
-                jump_flag=1;
+        if(type=="databot"){
+            if(country=="Taiwan"){
+                if(i==from_data_idIndex&&(values[i]!="c"||values[i]!="y")){
+                    jump_flag=1;
+                }
+            }
+            else{
+                if(i==foreign_from_data_idIndex&&(values[i]!="c"||values[i]!="y")){
+                    jump_flag=1;
+                }
             }
         }
-        else{
-            if(i==foreign_from_seed_idIndex&&values[i]=="c"){
-                jump_flag=1;
+        else if(type=="seedbot"){
+            if(country=="Taiwan"){
+                if(i==from_seed_idIndex&&values[i]=="c"){
+                    jump_flag=1;
+                }
             }
+            else{
+                if(i==foreign_from_seed_idIndex&&values[i]=="c"){
+                    jump_flag=1;
+                }
+            }
+
         }
+
         if(type=="databot"){
             if(values[i]=="y"||values[i]=="c"){
                 if(jump_flag==1){
                     if(country=="Taiwan"){
-                        from_data_idIndex = i;
+                        rom_data_idIndex = i;
                     }
                     else{
                         foreign_from_data_idIndex = i;
@@ -768,6 +788,26 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seed|data)/:action(list|search)/:country
 });
 
 
+app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
+    var action = req.params.action;
+    var i,j,k;
+    if(action=="list"){
+        var result="";
+        map_tw_address.forEach(function(value, key) {
+            if(result==""){
+                result=key+","+value;
+            }
+            else{
+                result+="\n"+key+","+value;
+            }
+        });
+        res.send(result);
+    }
+    else if(action=="search"){
+        var address = req.query.address;
+        res.send(map_tw_address.get(address));
+    }
+});
 /*(not yet)for new a bot action, bot manager*/
 app.get('/fbjob/:key/oceangaisbot/v1.0/newbot/',function(req,res){
     var key = req.params.key;
@@ -854,15 +894,17 @@ function updateseedid(country,str,id,fin){
 function datamanageid(country,action,ids,fin){
     var i,j,k;
     var stat="";
+    console.log(ids);
     if(action=="update"){
-        //console.log("update process:"+ids+"\n--");
+        console.log("update process:"+ids+"\n--");
         var ids_set = ids.split(",");
         var parts,parts_id,parts_status;
         for(i=0;i<ids_set.length;i++){
+            console.log("ids_set:"+ids_set[i]);
             if(ids_set[i]==""){
                 continue;
             }
-            parts = ids_set[i].split(":");
+            parts = ids_set[i].split("~");
             if(parts.length!=2){
                 continue;
             }
@@ -873,7 +915,7 @@ function datamanageid(country,action,ids,fin){
             }
             if(country=="Taiwan"){
                 if(!map_key.has(parts_id)){
-                    //console.log("new:"+parts_id+","+parts_status+"\n--");
+                    console.log("new:"+parts_id+","+parts_status+"\n--");
                     stat+="\nnot exist:id["+parts_id+"] to "+country;
                     continue;
                 }
@@ -921,32 +963,6 @@ function datamanageid(country,action,ids,fin){
         fin(stat);
         return;
     }
-    /*used for format.js: add id from post message_tag, no more use now
-    var datas = str.split("\n");
-    var part="";
-    var result="";
-    if(action=="new"){
-        for(i=0;i<datas.length;i++){
-            if(datas[i]!=""){
-                part = datas[i].split(",");
-                if(!map_key.has(part[0])){
-                    console.log("new:"+part[0]+"\n--");
-                    map_key.set(part[0],part[1]);
-                    result+=part[0]+","+part[1]+"\n";
-                }
-                else{
-                    console.log("has exist:"+part[0]+","+map_key.get(part[0])+"\n--");
-                }
-            }
-        }
-        if(result!=""){
-            fin("all exists");
-        }
-        else{
-            fin("ok");
-        }
-    }
-    */
 }
 function data_bot_searchid(country,id,fin){
     var result="none";
@@ -986,6 +1002,78 @@ function searchid(country,ids,fin){
     fin(result);
 }
 
+
+function ReadTWaddress(){
+    var options = {
+        //encoding: 'utf8',
+        skipEmptyLines:false
+    }
+    var lr = new LineByLineReader(tw_address_filename,options);
+    iconv.skipDecodeWarning = true;
+    lr.on('error', function (err) {
+        // 'err' contains error object
+        console.log("error:"+err);
+    });
+    lr.on('line', function (line) {
+        var t_county_en,t_block_en;
+        /*file format*/
+        /*
+        100,臺北市中正區,Zhongzheng Dist.,Taipei City
+        */
+        var part = line.split(",");
+        /*cut chinese county*/
+        var county = part[1];
+        var short_county_cht,county_cht,block_cht,block_cht_temp;
+        if(S(county).length<=3){
+            short_county_cht = county;
+        }
+        else{
+            short_county_cht = S(county).left(2).s;
+        }
+        
+        county_cht = S(county).left(3).s;
+        block_cht_temp = county.split(county_cht);
+        block_cht = block_cht_temp[1];
+        
+        /*cut english county*/
+        var county_en = part[3];
+        var short_county_en,county_en,block_en,county_en_temp;
+        block_en = part[2];
+
+        if(typeof county_en=="undefined"){
+            county_en = part[2];
+        }
+        
+        short_county_en = county_en;
+        county_en_temp = county_en.split(" County");
+        county_en_temp = county_en_temp[0].split(" City");
+
+        if(typeof county_en_temp[0]!="undefined"){
+            short_county_en = county_en_temp[0];
+        }
+
+        /*record to map*/
+        if(S(county).length>3){//if is special case => 290,釣魚台,Diaoyutai  then will not set to map
+            map_tw_address.set(short_county_cht,short_county_en);
+            map_tw_address.set(short_county_en,short_county_cht);
+        }
+        map_tw_address.set(county_cht,county_en);
+        map_tw_address.set(county_en,county_cht);
+
+        map_tw_address.set(block_cht,block_en);
+        map_tw_address.set(block_en,block_cht);
+
+        map_tw_address.set(county,block_en+", "+county_en);
+        map_tw_address.set(block_en+", "+county_en,county);
+    });
+    lr.on('end', function () {
+        // All lines are read, file is closed now.
+        console.log("read map_tw_address done");
+    });
+
+}
+
+
 function ReadID(){
     var options = {
         //encoding: 'utf8',
@@ -1002,13 +1090,13 @@ function ReadID(){
         var part = line.split(",");
         if(part[1]!="undefined"&&typeof part[1]!="undefined"&&part[0]!="undefined"&&typeof part[0]!="undefined"){
             map_key.set(part[0],part[1]);
-            console.log("read:"+part[0]+","+part[1]);
+            //console.log("read:"+part[0]+","+part[1]);
         }
     });
     lr.on('end', function () {
         // All lines are read, file is closed now.
         job.start();
-        console.log("read done");
+        console.log("read seed id done");
     });
 
 }
@@ -1028,7 +1116,7 @@ function ReadForeignID(){
         var part = line.split(",");
         if(part[1]!="undefined"&&typeof part[1]!="undefined"&&part[0]!="undefined"&&typeof part[0]!="undefined"){
             foreign_map_key.set(part[0],part[1]);
-            console.log("read foreign id:"+part[0]+","+part[1]);
+            //console.log("read foreign id:"+part[0]+","+part[1]);
         }
     });
     lr.on('end', function () {
@@ -1059,7 +1147,7 @@ function clearID(){
     var result="";
     var foreign_result="";
     map_key.forEach(function(value, key) {
-        if(value.indexOf(" ")==-1&&key.indexOf(" ")==-1&&value!=""&&key!=""&&value!=-1&&typeof value !="undefined"&&typeof key!="undefined"&&key!="undefined"&&value!="undefined") {
+        if(value!=""&&key!=""&&value!=-1&&typeof value !==undefined &&typeof key!==undefined&&key!="undefined"&&value!="undefined") {
             //console.log(key + " : " + value);
             result+=key+","+value+"\n";
         }

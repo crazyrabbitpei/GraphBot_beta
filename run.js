@@ -1,3 +1,5 @@
+'use strict'
+
 var CronJob = require('cron').CronJob;
 var request = require('request');
 var http = require('http');
@@ -11,7 +13,7 @@ var dateFormat = require('dateformat');
 var now = new Date();
 var nodemailer = require('nodemailer');
 var transporter = nodemailer.createTransport();
-var matchGame = require('./tool/notice');
+var storeinfo = require('./tool/format.js');
 var fbBot = require('./fbbot');
 
 var success_url=0;
@@ -21,15 +23,16 @@ exports.Bot_runStatus=Bot_runStatus;
 
 
 try {
-    service1 = JSON.parse(fs.readFileSync('./service/shadow'));
+    var service1 = JSON.parse(fs.readFileSync('./service/shadow'));
     //var groupid = service1['id'];
     var version = service1['version'];
     var limit = service1['limit'];
     var fields = service1['fields'];
     var info = service1['info'];
     var dir = service1['dir'];
+    var country_location = service1['country'];
 
-    service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
+    var service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
     var appid = service2['id'];
     var yoyo = service2['yoyo'];
     var tomail = service2['tomail'];
@@ -45,6 +48,7 @@ try {
     exports.fields=fields;
     exports.info=info;
     exports.dir=dir;
+    exports.country_location=country_location;
     
     exports.appid=appid;
     exports.yoyo=yoyo;
@@ -63,11 +67,52 @@ catch (err) {
     process.exit(9);
 }
 finally{
+    setpromise();
+}
+
+function setpromise(){
+    let promise = new Promise(function(resolve,reject){
+        start(function(result){
+            resolve(result);
+        });
+    });
+
+    promise.then(function(stat){
+        if(stat.indexOf('end:')!=-1){
+            var now  = new Date();
+            var date = dateFormat(now, "yyyymmdd");
+            var parts = stat.split(':');
+            var crawled_id = parts[1];
+            fs.appendFile('./log/'+date+'+.oklist',crawled_id,function(){
+            });
+            setpromise();          
+        }
+        else if(stat=='none'){
+            console.log('All crawled');
+        }
+        else if(stat=='error'){
+            console.log("error occur");
+        }
+        else{
+            console.log(stat);
+        }
+    }).catch(function(error){
+        var now  = new Date();
+        var date = dateFormat(now, "yyyymmdd");
+        fs.appendFile('./log/'+date+'+.err','error:'+error+'\n',function(){
+            console.log("promise error occur");
+        });
+    });
+    
+}
+
+function start(fin){
     var request_num=1;
     get_accessToken(function(token){
         console.log("token:"+token);
         if(token=="error"){
             console.log("init=>get_accessToken:can't get token");
+            fin(token);
             return;
         }
         else{
@@ -76,18 +121,21 @@ finally{
                 if(result=="none"){
                     fs.appendFile(dir+"/err_log","init=>requireSeed:has map is empty\n",function(){});
                     console.log("init=>requireSeed:has map is empty");
+                    fin(result);
                     return;
                 }
                 else if(result=="error"){
                     console.log("requireSeed:error");
+                    fin(result);
                     return;
                 }
                 var fail=0;
                 var seeds = result.split(",");
+                var i;
                 for(i=0;i<seeds.length;i++){
                     //console.log(seeds[i]);
                     try{
-                        fs.accessSync(dir+'/'+seeds[i],fs.F_OK);
+                        fs.accessSync(dir+'/'+country_location+'/'+seeds[i],fs.F_OK);
                     }
                     catch(e){
                         //console.log(e);
@@ -98,10 +146,12 @@ finally{
                             //console.log("file exist:"+seeds[i]);
                         }
                         else{
-                            fs.mkdir(dir+"/"+seeds[i]);
+                            fs.mkdir(dir+'/'+country_location+'/'+seeds[i]);
                             //console.log("file create:"+seeds[i]);
                         }
-                        setBot(key,seeds[i],token);
+                        setBot(key,seeds[i],token,function(bot_result){
+                            fin(bot_result);
+                        });
                     }
 
                 }
@@ -109,12 +159,13 @@ finally{
 
         }
     });
+
 }
 
 function requireSeed(num,fin){
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/?q='+num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/data/?q='+num,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/databot/'+country_location+'?num='+num,
         timeout: 10000
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
@@ -147,7 +198,7 @@ function get_accessToken(fin){
 
 }
 
-function setBot(botkey,groupid,token){
+function setBot(botkey,groupid,token,fin){
     console.log("--\ngo groupid:"+groupid);
     try{
         fbBot.crawlerFB(token,groupid,botkey,function(result){
@@ -155,10 +206,12 @@ function setBot(botkey,groupid,token){
             console.log("current num:"+current_url);
             if(result=="error"){
                 console.log(result);
+                fin(result);
             }
             else{
                 success_url++;
                 console.log("success num:"+success_url);
+                fin(result);
             }
         });
     }

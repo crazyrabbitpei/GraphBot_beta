@@ -16,7 +16,7 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         if(feeds[i]["updated_time"]<=end_flag && end_flag!=0){
             console.log("updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
             console.log("=>end");
-            fin("end");
+            fin("end:"+feeds[i]["id"]);
             return ;
         }
         //console.log("=>pass");
@@ -68,21 +68,9 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
             }
             //result +="\n@tag:"+message_tag;
         }
+        */
         i++;
     }
-    if(message_tag!="" && typeof message_tag != "undefined"){
-        //console.log("link to "+'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/new/0/?q='+message_tag);
-        request({
-            uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/data/new/y/?q='+message_tag,
-            timeout:10000
-        },function(error, response, body){
-            if(error){
-                console.log(error);
-            }
-            console.log("url update status=>"+body);
-        });
-    }
-    */
     fin(result);
 }
 exports.storeinfo = storeinfo;

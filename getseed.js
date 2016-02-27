@@ -267,7 +267,7 @@ function insertSeed(ids,fin){
             if(old_check>1000){
                 process.exit(0);
             }
-            else if(country=="Taiwan"){
+            else if(country=="Taiwan"&&old_check>200){
                 old_check++;
                 country = "Foreign";
                 console.log("--change to ["+country+"]--");
