@@ -71,21 +71,27 @@ finally{
 }
 
 function setpromise(){
+    var start_d  = new Date();
+    var date_start = dateFormat(start_d, "yyyymmdd_HHMM");
     let promise = new Promise(function(resolve,reject){
         start(function(result){
+
+            console.log("finish");
             resolve(result);
         });
     });
 
     promise.then(function(stat){
-        if(stat.indexOf('end:')!=-1){
+        if(stat.indexOf('endTONext@Gais:')!=-1){
             var now  = new Date();
             var date = dateFormat(now, "yyyymmdd");
             var parts = stat.split(':');
             var crawled_id = parts[1];
-            fs.appendFile('./log/'+date+'+.oklist',crawled_id,function(){
+            var end_d  = new Date();
+            var date_end = dateFormat(end_d, "yyyymmdd_HHMM");
+            fs.appendFile('./log/'+date+'.oklist',"start:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
             });
-            setpromise();          
+            //setpromise();          
         }
         else if(stat=='none'){
             console.log('All crawled');
@@ -94,7 +100,7 @@ function setpromise(){
             console.log("error occur");
         }
         else{
-            console.log(stat);
+            console.log("else:"+stat);
         }
     }).catch(function(error){
         var now  = new Date();

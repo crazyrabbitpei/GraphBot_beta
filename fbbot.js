@@ -1,3 +1,4 @@
+'use strict'
 var request = require('request');
 var http = require('http');
 var fs = require('graceful-fs');
@@ -34,7 +35,7 @@ function crawlerFB(token,groupid,key,fin){
         if(error){
             console.log("crawlerFB=>talking_about_count,likes:error");
             fs.appendFile(dir+"/"+country+"/"+groupid+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
-            fin("error");
+            fin("error:"+error);
             return;
         }
         else{
@@ -63,16 +64,17 @@ function crawlerFB(token,groupid,key,fin){
                             console.log("6.");
                             crawlerFB(token,groupid,key,fin);
                         },10000);
+                        return;
                     }
                     else{
                         fs.appendFile(dir+"/"+country+"/"+groupid+"/about","id:"+about['id']+"\nlocation:none\ntalking_about_count:-1\nlikes:-1\nwere_here_count:-1\ncategory:none",function(){});
                         updateidServer(key,id_serverip,id_serverport,country,groupid,-1,function(st){
                             if(st=="error"){
-                                fin("error");
+                                fin("error:updateidServer");
                                 return;
                             }
                         });
-                        fin(error);
+                        fin("error:about['error']");
                         return;
                     }
                 }
@@ -82,7 +84,7 @@ function crawlerFB(token,groupid,key,fin){
                     if(about['is_community_page']==true){
                         updateidServer(key,id_serverip,id_serverport,country,groupid,-1,function(st){
                             if(st=="error"){
-                                fin("error");
+                                fin("error:updateidServer");
                                 return;
                             }
                         });
@@ -148,11 +150,11 @@ function crawlerFB(token,groupid,key,fin){
                     fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
                     updateidServer(key,id_serverip,id_serverport,country,groupid,-1,function(st){
                         if(st=="error"){
-                            fin("error");
+                            fin("error:updateidServer");
                             return;
                         }
                     });
-                    fin("error");
+                    fin("error:feeds['error']");
                     return;
                 }
             }
@@ -162,11 +164,11 @@ function crawlerFB(token,groupid,key,fin){
                 fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
                 updateidServer(key,id_serverip,id_serverport,country,groupid,-1,function(st){
                     if(st=="error"){
-                        fin("error");
+                        fin("error:updateidServer");
                         return;
                     }
                 });
-                fin("error");
+                fin("error:feeds['data']");
                 return;
             }
             console.log("--["+groupid+"] start\n"+feeds['data'].length);
@@ -176,16 +178,16 @@ function crawlerFB(token,groupid,key,fin){
                 if(typeof feeds['data'][0] =="undefined"){
                     console.log("feeds['data'][0] == 'undefined'");
                     fs.appendFile(dir+"/err_log","--\n["+groupid+"] crawlerFB:"+body+"\n",function(){});
-                    fin("error");
+                    fin("error:feeds['data'][0] == 'undefined'");
                     return;
                 }
                 isCrawled(key,id_serverip,id_serverport,country,feeds["data"][0]["updated_time"],groupid,function(status,last_time,now_time){
                     if(status=="error"){
-                        fin("error");
+                        fin("error:isCrawled");
                         return;
                     }
                     else if(status=="yes"){//has isCrawled, and no new post
-                        fin("error");
+                        fin("crawled");
                         return;   
                     }
                     else if(status=="no"){
@@ -198,7 +200,7 @@ function crawlerFB(token,groupid,key,fin){
                         */
                         updateidServer(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["updated_time"],function(st){
                             if(st=="error"){
-                                fin("error");
+                                fin("error:updateidServer");
                                 return;
                             }
                             if(last_time!=0){
@@ -206,13 +208,15 @@ function crawlerFB(token,groupid,key,fin){
                                 last_time = parts[0]+"+"+parts[1];
                             }
                             storeinfo.storeinfo(key,now_time,last_time,id_serverip,id_serverport,feeds["data"],function(result){
-                                if(result.indexOf('end:')!=-1){
+                                if(result.indexOf('endTONext@Gais:')!=-1){
                                     fin(result);
                                     return;
                                 }
                                 else{
+                                    let temp_result = result.split("continueTONext@Gais:");
                                     console.log("write:"+dir+"/"+country+"/"+groupid+"/fb_"+date);
-                                    fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,result,function(){});
+                                    //console.log(temp_result[1]);
+                                    fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[1],function(){});
                                     // console.log("next=>"+feeds['paging'].next);
                                     //if(depth-1!=0){
                                     if(typeof feeds['paging'] !="undefined"){
@@ -246,7 +250,6 @@ function updateidServer(key,id_serverip,id_serverport,country,id,time,fin)
             setTimeout(function(){
                 updateidServer(key,id_serverip,id_serverport,country,id,time,fin);
             },60000);
-            fin("error");
         }
         else if(body=="illegal request"){
             fs.appendFile(dir+"/err_log","--\n["+id+"] updateidServer:illegal request",function(){});
@@ -284,6 +287,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                     console.log("3.");
                     nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
                 },10000);
+                return;
             }
             else{
                 var feeds = JSON.parse(body);
@@ -292,12 +296,16 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
         catch(e){
             console.log("nextPage=>error"+e);
             fs.appendFile(dir+"/"+country+"/"+groupid+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
-            fin("error");
+            fin("error:nextPage=>error"+e);
             return;
         }
         finally{
             if(typeof feeds == "undefined"){
-                fin("error");
+                setTimeout(function(){
+                    console.log("3.1.");
+                    nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
+                },10000);
+                //fin("error");
                 return;
             }
             if(feeds['error']){
@@ -318,11 +326,11 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                     fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
                     updateidServer(key,id_serverip,id_serverport,country,groupid,-1,function(st){
                         if(st=="error"){
-                            fin("error");
+                            fin("error:updateidServer");
                             return;
                         }
                     });
-                    fin("error");
+                    fin("error:feeds['error']");
                     return;
                 }
             }
@@ -332,11 +340,11 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                 fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
                 updateidServer(key,id_serverip,id_serverport,country,groupid,-1,function(st){
                     if(st=="error"){
-                        fin("error");
+                        fin("error:updateidServer");
                         return;
                     }
                 });
-                fin("error");
+                fin("error:feeds['data']");
                 return;
             }
             console.log("--["+groupid+"] next\n"+feeds['data'].length);
@@ -344,12 +352,13 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                 var now = new Date();
                 var date = dateFormat(now, "yyyymmdd");
                 storeinfo.storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds["data"],function(result){
-                    if(result.indexOf('end:')!=-1){
+                    if(result.indexOf('endTONext@Gais:')!=-1){
                         fin(result);
                         return;
                     }
                     else{
-                        fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,result,function(){});
+                        let temp_result = result.split("continueTONext@Gais:");
+                        fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[1],function(){});
                         //console.log("next:?"+feeds['paging'].next);
                         if(typeof feeds['paging'] !="undefined"){
                             nextPage(key,feeds['paging'].next,depth_link-1,token,groupid,end_flag,now_flag,fin);
@@ -383,7 +392,7 @@ function isCrawled(key,id_serverip,id_serverport,country,time,id,fin){
         else if(body=="y"||body=="c"){//first crawled
             body=0;
         }
-        parts = time.split("+");
+        var parts = time.split("+");
         time = parts[0]+" "+parts[1];
         //console.log("old time:"+body+" update time:"+time);
         if(body==time){

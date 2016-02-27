@@ -1,3 +1,4 @@
+'use strict'
 var S = require('string');
 var he = require('he');
 var dateFormat = require('dateformat');
@@ -12,11 +13,11 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
     var i=0,j=0;
     while(i<feeds.length){
         //time compare
-        //console.log("updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
+        console.log("feeds.length:"+feeds.length+"\n["+i+"]updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
         if(feeds[i]["updated_time"]<=end_flag && end_flag!=0){
-            console.log("updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
+            console.log("["+feeds[i]["id"]+"]updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
             console.log("=>end");
-            fin("end:"+feeds[i]["id"]);
+            fin("endTONext@Gais:"+feeds[i]["id"]);
             return ;
         }
         //console.log("=>pass");
@@ -71,6 +72,7 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         */
         i++;
     }
-    fin(result);
+    //fin("continue:"+feeds[i-1]["id"]);
+    fin("continueTONext@Gais:"+result);
 }
 exports.storeinfo = storeinfo;
