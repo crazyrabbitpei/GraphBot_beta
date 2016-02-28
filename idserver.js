@@ -60,6 +60,7 @@ var job = new CronJob({
     start:false,
     timeZone:'Asia/Taipei'
 });
+job.start();
 //new CronJob(writeidInterval,clearID, null, true, 'Asia/Taipei');
 //--server process--
 process.on('SIGINT', function () {
@@ -83,14 +84,11 @@ server.listen(apiport,apiip,function(){
 
 /*---------for url manage--------------
  * for data bot
-    - new a set of id:1123,1123....(Discard)
-    - delete a set of id(Discard)
     - search an id 
-    - update a id:update/country/?q=newtime&ids=ids
-        - q=-1:delete id
-        - q='y':new id//no more use, but still used for sedd bot
-        - q=anytime:update timestamp
-        - ids=id1,id2,....
+    - update a id:update/country/?ids=id:time
+        -country default is Taiwan
+        -ids ex:12345:2016....
+        -notice: this API CAN't BE used to delete or insert seed
 --------------------------------------*/
 app.get('/fbjob/:key/v1.0/databot/:action(search|update)/:country?',function(req,res){
     var key = req.params.key;
@@ -124,10 +122,12 @@ app.get('/fbjob/:key/v1.0/databot/:action(search|update)/:country?',function(req
 });
 /*---------for url manage--------------
  * for seed bot
-    - update a id:update/country/?q=c&ids=id...
-    - q="c" => reprsent "crawled"
-        - if map_key(id) has a timestamp then do not upate "c"
-    - ids=id1,id2...
+    - update a id:update/country/?ids=id1:c1,id2:c2...
+    -country default is Taiwan
+    - :"c" => reprsent "crawled"
+        - if map_key(id) has a timestamp then do not update "c"
+    - ids=id1:c1,id2:c2...
+    -notice: this API CAN't BE used to delete or insert seed
 --------------------------------------*/
 app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
     var i,j,k;
@@ -179,7 +179,7 @@ app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
 /*------insert new seed--------*/
 /*
  * for seed bot and data bot
-    ?ids=231,1312...
+    ?ids=231:Taipei,1312:Taiwan...
     a set of id
 */
 /*------insert new seed--------*/
@@ -788,6 +788,13 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seed|data)/:action(list|search)/:country
 });
 
 
+/*-------listing and searching Taiwan's address list-----------*/
+/*
+ * for both seed and data bot
+    - search:search?address=location_name ex:address=Taipei  or address=臺北
+    - list:list all address I have in Taiwan
+*/
+/*-------listing and searching url list-----------*/
 app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
     var action = req.params.action;
     var i,j,k;
@@ -914,16 +921,12 @@ function datamanageid(country,action,ids,fin){
                 continue;
             }
             if(country=="Taiwan"){
-                if(!map_key.has(parts_id)){
-                    console.log("new:"+parts_id+","+parts_status+"\n--");
+                if(!map_key.has(parts_id)){//if id not exists, then skip it, if want to insert new seed id must use /v1.0/insertseed/ api
                     stat+="\nnot exist:id["+parts_id+"] to "+country;
                     continue;
                 }
                 else if(map_key.has(parts_id)){
                     if(parts_status=="-1"){
-                        //map_key.remove(parts_id);
-                        //console.log("delete:"+parts_id+","+parts_status+"\n--");
-                        //stat+="\ndelete id["+parts_id+"] to "+country;
                         stat += "can't delete id ["+parts_id+"], please use deleteseed API to delete id\n--";
                         continue;
                     }
@@ -937,8 +940,8 @@ function datamanageid(country,action,ids,fin){
                 }
             }
             else{
-                if(!foreign_map_key.has(parts_id)){
-                    //console.log("new:"+parts_id+","+parts_status+"\n--");
+                if(!foreign_map_key.has(parts_id)){//if id not exists, then skip it, if want to insert new seed id must use /v1.0/insertseed/ api
+
                     stat+="\nnot exist:id["+parts_id+"] to "+country;
                     continue;
                 }
@@ -1095,7 +1098,7 @@ function ReadID(){
     });
     lr.on('end', function () {
         // All lines are read, file is closed now.
-        job.start();
+        //job.start();
         console.log("read seed id done");
     });
 
@@ -1121,7 +1124,7 @@ function ReadForeignID(){
     });
     lr.on('end', function () {
         // All lines are read, file is closed now.
-        job.start();
+        //job.start();
         console.log("read foreign id done");
     });
 

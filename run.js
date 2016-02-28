@@ -75,23 +75,28 @@ function setpromise(){
     var date_start = dateFormat(start_d, "yyyymmdd_HHMM");
     let promise = new Promise(function(resolve,reject){
         start(function(result){
-
-            console.log("finish");
             resolve(result);
         });
     });
 
     promise.then(function(stat){
         if(stat.indexOf('endTONext@Gais:')!=-1){
-            var now  = new Date();
-            var date = dateFormat(now, "yyyymmdd");
-            var parts = stat.split(':');
-            var crawled_id = parts[1];
-            var end_d  = new Date();
-            var date_end = dateFormat(end_d, "yyyymmdd_HHMM");
-            fs.appendFile('./log/'+date+'.oklist',"start:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
-            });
-            //setpromise();          
+            let now  = new Date();
+            let date = dateFormat(now, "yyyymmdd");
+            let parts = stat.split("endTONext@Gais:");
+            let crawled_id = parts[1];
+            let end_d  = new Date();
+            let date_end = dateFormat(end_d, "yyyymmdd_HHMM");
+            if(crawled_id!="crawled"){
+                fs.appendFile('./log/'+date+'.oklist',"start:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
+                });
+            }
+            if(success_url<10){
+                setpromise();          
+            }
+            else{
+                console.log("Finish:"+success_url);
+            }
         }
         else if(stat=='none'){
             console.log('All crawled');

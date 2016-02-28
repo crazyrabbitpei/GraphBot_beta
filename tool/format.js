@@ -13,11 +13,11 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
     var i=0,j=0;
     while(i<feeds.length){
         //time compare
-        console.log("feeds.length:"+feeds.length+"\n["+i+"]updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
-        if(feeds[i]["updated_time"]<=end_flag && end_flag!=0){
-            console.log("["+feeds[i]["id"]+"]updated_time:"+feeds[i]["updated_time"]+" end_flag:"+end_flag);
+        //console.log("["+i+"]created_time:"+feeds[i]["created_time"]+" end_flag:"+end_flag);
+        if(feeds[i]["created_time"]<=end_flag && end_flag!=0){
+            console.log("["+feeds[i]["id"]+"]created_time:"+feeds[i]["created_time"]+" end_flag:"+end_flag);
             console.log("=>end");
-            fin("endTONext@Gais:"+feeds[i]["id"]);
+            fin("endTONext@Gais:"+feeds[i]["id"]+"endTONext@Gais:"+result);
             return ;
         }
         //console.log("=>pass");
@@ -39,7 +39,15 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         if(feeds[i]["message"]){
             body += "\n"+feeds[i]["message"];
         }
-        result += "\n@\n";
+        if(feeds[i]["description"]){
+            body += "\n"+feeds[i]["description"];
+        }
+        if(result!=""){
+            result += "\n@\n";
+        }
+        else{
+            result += "@\n";
+        }
         result += "@title:"+title+"\n";
         result += "@source:"+source+"\n";
         result += "@url:"+url+"\n";
