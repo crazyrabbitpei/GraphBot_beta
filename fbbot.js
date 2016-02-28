@@ -181,13 +181,13 @@ function crawlerFB(token,groupid,key,fin){
                     fin("error:feeds['data'][0] == 'undefined'");
                     return;
                 }
-                isCrawled(key,id_serverip,id_serverport,country,feeds["data"][0]["updated_time"],groupid,function(status,last_time,now_time){
+                isCrawled(key,id_serverip,id_serverport,country,feeds["data"][0]["created_time"],groupid,function(status,last_time,now_time){
                     if(status=="error"){
                         fin("error:isCrawled");
                         return;
                     }
                     else if(status=="yes"){//has isCrawled, and no new post
-                        fin("crawled");
+                        fin("endTONext@Gais:crawled");
                         return;   
                     }
                     else if(status=="no"){
@@ -198,7 +198,7 @@ function crawlerFB(token,groupid,key,fin){
                             return;
                         }
                         */
-                        updateidServer(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["updated_time"],function(st){
+                        updateidServer(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["created_time"],function(st){
                             if(st=="error"){
                                 fin("error:updateidServer");
                                 return;
@@ -209,12 +209,16 @@ function crawlerFB(token,groupid,key,fin){
                             }
                             storeinfo.storeinfo(key,now_time,last_time,id_serverip,id_serverport,feeds["data"],function(result){
                                 if(result.indexOf('endTONext@Gais:')!=-1){
+                                    let temp_result = result.split("endTONext@Gais:");
+                                    if(temp_result[2]!=""){
+                                        fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[2],function(){});
+                                    }
                                     fin(result);
                                     return;
                                 }
                                 else{
                                     let temp_result = result.split("continueTONext@Gais:");
-                                    console.log("write:"+dir+"/"+country+"/"+groupid+"/fb_"+date);
+                                    //console.log("write:"+dir+"/"+country+"/"+groupid+"/fb_"+date);
                                     //console.log(temp_result[1]);
                                     fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[1],function(){});
                                     // console.log("next=>"+feeds['paging'].next);
@@ -353,11 +357,16 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                 var date = dateFormat(now, "yyyymmdd");
                 storeinfo.storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds["data"],function(result){
                     if(result.indexOf('endTONext@Gais:')!=-1){
+                        let temp_result = result.split("endTONext@Gais:");
+                        if(temp_result[2]!=""){
+                            fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[2],function(){});
+                        }
                         fin(result);
                         return;
                     }
                     else{
                         let temp_result = result.split("continueTONext@Gais:");
+                        //console.log("write:"+dir+"/"+country+"/"+groupid+"/fb_"+date);
                         fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[1],function(){});
                         //console.log("next:?"+feeds['paging'].next);
                         if(typeof feeds['paging'] !="undefined"){
@@ -365,6 +374,9 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                         }
                     }
                 });
+            }
+            else{
+                fin('endTONext@Gais:'+groupid);
             }
         }
     });
@@ -405,5 +417,52 @@ function isCrawled(key,id_serverip,id_serverport,country,time,id,fin){
         }
     });
 }
+
+function deleteSeed(ids,fin){
+    socket_num++;
+    //console.log("socket_num:"+socket_num);
+    var temp_ids = querystring.stringify({ids:ids});
+    request({
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/deleteseed/?'+temp_ids,
+        timeout: 10000
+    },function(error, response, body){
+        if(error){
+            console.log("error:"+body);
+            job.stop();
+            if(again_flag==0){
+                fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] deleteSeed:"+error,function(){});
+                console.log("deleteSeed:"+error);
+                again_flag=1;
+                setTimeout(function(){
+                    job.start();
+                    again_flag=0;
+                    socket_num=0;
+                },60000);
+            }
+            fin("error");
+            return;
+        }
+        if(body=="illegal request"){//url request error
+            fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] deleteSeed:"+body,function(){});
+            console.log("deleteSeed:"+body);
+            job.stop();
+            process.exit(0);
+            fin("error");
+            return;
+        }
+        else if(body==""){
+            body=0;
+            console.log("delete seed fail");
+            deleteSeed(ids,function(stat){
+                console.log(stat);
+            });
+            return;
+        }
+        else{
+            fin("delete seed:"+body);
+        }
+    });
+}
+
 
 
