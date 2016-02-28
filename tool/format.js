@@ -8,7 +8,7 @@ var fs = require('graceful-fs');
 function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
     var now = new Date();
     var date = dateFormat(now, "yyyymmdd_HHMM");
-    var title,source,url,time,body,message_tag="";
+    var title,source,url,time,body,message_tag="",description="";
     var result="";
     var i=0,j=0;
     while(i<feeds.length){
@@ -40,7 +40,7 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
             body += "\n"+feeds[i]["message"];
         }
         if(feeds[i]["description"]){
-            body += "\n"+feeds[i]["description"];
+            description += feeds[i]["description"];
         }
         if(result!=""){
             result += "\n@\n";
@@ -52,7 +52,9 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         result += "@source:"+source+"\n";
         result += "@url:"+url+"\n";
         result += "@time:"+time+"\n";
-        result += "@body:"+body;
+        result += "@body:"+body+"\n";
+        result += "@description:"+description;
+
         //all feeds are came from api request, not from the post
         /*
         if(feeds[i]["message_tags"]){

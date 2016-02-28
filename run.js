@@ -81,6 +81,9 @@ function setpromise(){
 
     promise.then(function(stat){
         if(stat.indexOf('endTONext@Gais:')!=-1){
+            success_url++;
+            console.log("success num:"+success_url);
+            
             let now  = new Date();
             let date = dateFormat(now, "yyyymmdd");
             let parts = stat.split("endTONext@Gais:");
@@ -101,8 +104,8 @@ function setpromise(){
         else if(stat=='none'){
             console.log('All crawled');
         }
-        else if(stat=='error'){
-            console.log("error occur");
+        else if(stat.indexOf('error')!=-1){
+            console.log("error occur:"+stat);
         }
         else{
             console.log("else:"+stat);
@@ -220,8 +223,7 @@ function setBot(botkey,groupid,token,fin){
                 fin(result);
             }
             else{
-                success_url++;
-                console.log("success num:"+success_url);
+
                 fin(result);
             }
         });

@@ -324,7 +324,7 @@ app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
 /*------get a set of seed to crawler--------*/
 /*
  * for both seed and data bot
-    require [num] to cralwer<=/?q=num, default=10
+    require [num] to cralwer<=/?num=number, default=10
     - for data bot
     - for seeds bot
 */
@@ -737,7 +737,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     - list:will use type, not use ids
 */
 /*-------listing and searching url list-----------*/
-app.get('/fbjob/:key/v1.0/urllist/:type(seed|data)/:action(list|search)/:country?',function(req,res){
+app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:country?',function(req,res){
     var key = req.params.key;
     var type = req.params.type;
     var action = req.params.action;
@@ -766,7 +766,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seed|data)/:action(list|search)/:country
             values = foreign_map_key.values();
         }
         for(i=0;i<values.length;i++){
-            if(type=="seed"){
+            if(type=="seedbot"){
                 if(values[i]!="c"){
                     nc_count++;
                 }
@@ -774,7 +774,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seed|data)/:action(list|search)/:country
                     c_count++;
                 }
             }
-            if(type=="data"){
+            if(type=="databot"){
                 if(values[i]!="y"&&values[i]!="c"){
                     c_count++;
                 }
