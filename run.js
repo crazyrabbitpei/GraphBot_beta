@@ -96,11 +96,11 @@ function setpromise(){
                 fs.appendFile('./log/'+date+'.oklist',"start:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
                 });
             }
-            if(success_url<10){
+            if(current_url<10){
                 setpromise();          
             }
             else{
-                console.log("Finish:"+success_url);
+                console.log("Finish:"+current_url);
             }
         }
         else if(stat=='none'){
@@ -217,6 +217,8 @@ function get_accessToken(fin){
 function setBot(botkey,groupid,token,fin){
     console.log("--\ngo groupid:"+groupid);
     try{
+        var start_d  = new Date();
+        var date_start = dateFormat(start_d, "yyyymmdd_HHMM");
         fbBot.crawlerFB(token,groupid,botkey,function(result){
             current_url++;
             console.log("current num:"+current_url);
@@ -225,6 +227,16 @@ function setBot(botkey,groupid,token,fin){
                 fin(result);
             }
             else{
+                let now  = new Date();
+                let date = dateFormat(now, "yyyymmdd");
+                let parts = result.split("endTONext@Gais:");
+                let crawled_id = parts[1];
+                let end_d  = new Date();
+                let date_end = dateFormat(end_d, "yyyymmdd_HHMM");
+                if(crawled_id!="crawled"){
+                    fs.appendFile('./log/'+date+'.oklist.test',"start:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
+                    });
+                }
 
                 fin(result);
             }

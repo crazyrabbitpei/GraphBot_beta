@@ -34,19 +34,19 @@ function crawlerFB(token,groupid,key,fin){
         timeout:10000
     },function(error, response, body){
         if(error){
+            if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
+                setTimeout(function(){
+                    console.log("Retry crawlerFB=>about");
+                    crawlerFB(token,groupid,key,fin);
+                },again_time*1000*30);//1 minutes
+                return;
+            }
             console.log("crawlerFB=>talking_about_count,likes:error");
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
-
-            setTimeout(function(){
-                console.log("Retry crawlerFB");
-                crawlerFB(token,groupid,key,fin);
-            },again_time*1000);
-            return;
         }
         else{
             try{
                 if(typeof body==="undefined"){
-
                     setTimeout(function(){
                         console.log("Retry crawlerFB");
                         crawlerFB(token,groupid,key,fin);
@@ -77,7 +77,7 @@ function crawlerFB(token,groupid,key,fin){
                     }
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
                         setTimeout(function(){
-                            console.log("6.Retry");
+                            console.log("6.Another Retry");
                             crawlerFB(token,groupid,key,fin);
                         },again_time*1000);
                         return;
@@ -131,14 +131,14 @@ function crawlerFB(token,groupid,key,fin){
         timeout:30000
     },function(error, response, body){
         if(error){
-            //fs.appendFile(dir+"/"+country+"/"+groupid+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB:"+body+"\n",function(){});
+            if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
+                setTimeout(function(){
+                    console.log("Retry crawlerFB");
+                    crawlerFB(token,groupid,key,fin);
+                },again_time*1000*30);//1 minutes
+                return;
+            }
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB:"+body+"\n",function(){});
-
-            setTimeout(function(){
-                console.log("Retry crawlerFB");
-                crawlerFB(token,groupid,key,fin);
-            },again_time*1000);
-            return;
         }
         else{
             //console.log("error:"+error+" body:"+body);
@@ -385,17 +385,18 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
         timeout:10000
     },function(error, response, body){
         if(error){
+            if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
+                setTimeout(function(){
+                    console.log("Retry nextPage");
+                    nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
+                },again_time*1000*30);//1 minutes
+                return;
+            }
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
-
-            setTimeout(function(){
-                console.log("Retry nextPage");
-                nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
-            },again_time*1000);
         }
         else{
             try{
                 if(typeof body==="undefined"){
-
                     setTimeout(function(){
                         console.log("Retry nextPage");
                         console.log("3.");
@@ -436,7 +437,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                     }
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
                         setTimeout(function(){
-                            console.log("4.Retry");
+                            console.log("4.Another Retry");
                             nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },again_time*1000);
                         return;

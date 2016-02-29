@@ -218,6 +218,7 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
         if(id==""||loca==""||isNaN(id)){
             continue;
         }
+        //TODO:use address API
         if(loca=="Taiwan"||loca=="none"||loca=="台灣"||loca=="臺灣"){
             if(map_size>=url_mapSize){
                 console.log("map_size>=url_mapSize:"+map_size);
@@ -256,6 +257,7 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
         loca_parts = parts[i].split(":");
         id = loca_parts[0];
         loca = loca_parts[1];
+        //TODO:use address API
         if(loca=="Taiwan"||loca=="none"||loca=="台灣"||loca=="臺灣"){
             if(!map_key.has(id)){
                 map_key.set(id,"y");
