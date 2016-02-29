@@ -51,18 +51,18 @@ var require_num=50;
 var job = new CronJob({
         cronTime:seed_require_Interval,
         onTick:function(){
-            requireSeed(require_num);
+            requireSeed(require_num,-1);
         },
         start:false,
         timeZone:'Asia/Taipei'
 });
 job.start();
 //requireSeed(50);
-function requireSeed(num){
+function requireSeed(num,from_Index){
     socket_num++;
     //console.log("socket_num:"+socket_num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seedbot/'+country+'/?num='+num,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seedbot/'+country+'/?num='+num+'&from='+from_index,
         timeout: 10000
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
@@ -104,7 +104,7 @@ function requireSeed(num){
 
 function getSeed(groupid,token,fin){
     console.log("--\nrequest:"+groupid);
-    var i,j,k;
+
     socket_num++;
     //console.log("socket_num:"+socket_num);
     //console.log("graph_reauest:"+graph_request);
@@ -139,17 +139,16 @@ function getSeed(groupid,token,fin){
             var len = Object.keys(feeds).length;
             var page_name="";
             var dot_flag=0;
+            var i,j,k;
             graph_request++;
             for(j=0;j<len;j++){
                 page_name = Object.keys(feeds)[j];
                 if(feeds[page_name]['data'].length!=0){
                     dot_flag++;
                     var ids="";
-                    var loca="none";
                     for(i=0;i<feeds[page_name]['data'].length;i++){
-                        loca="none";
+                        let loca="none";
                         if(dot_flag==1&&i==0){
-                            ids += feeds[page_name]['data'][i]['id'];
                             if(typeof feeds[page_name]['data'][i]['location'] !="undefined"){
                                 if(typeof feeds[page_name]['data'][i]['location']['country']!= "undefined"){
                                     loca = feeds[page_name]['data'][i]['location']['country'];
@@ -160,11 +159,10 @@ function getSeed(groupid,token,fin){
                                 }
 
                             }
+                            ids += feeds[page_name]['data'][i]['id'];
                             ids+=":"+loca;
                         }
                         else{
-                            //ids += ","+feeds['data'][i]['id']+":"+feeds['data'][i]['name'];
-                            ids += ","+feeds[page_name]['data'][i]['id'];
                             if(typeof feeds[page_name]['data'][i]['location'] !="undefined"){
                                 if(typeof feeds[page_name]['data'][i]['location']['country']!= "undefined"){
                                     loca = feeds[page_name]['data'][i]['location']['country'];
@@ -175,6 +173,7 @@ function getSeed(groupid,token,fin){
                                 }
 
                             }
+                            ids += ","+feeds[page_name]['data'][i]['id'];
                             ids+=":"+loca;
                         }
                     }

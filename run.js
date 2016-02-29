@@ -31,6 +31,7 @@ try {
     var info = service1['info'];
     var dir = service1['dir'];
     var country_location = service1['country'];
+    var again_time = service1['again_time'];
 
     var service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
     var appid = service2['id'];
@@ -48,6 +49,7 @@ try {
     exports.fields=fields;
     exports.info=info;
     exports.dir=dir;
+    exports.again_time=again_time;
     exports.country_location=country_location;
     
     exports.appid=appid;
@@ -130,7 +132,7 @@ function start(fin){
             return;
         }
         else{
-            requireSeed(request_num,function(result){
+            requireSeed(request_num,-1,function(result){
                 //console.log(result);
                 if(result=="none"){
                     fs.appendFile(dir+"/err_log","init=>requireSeed:has map is empty\n",function(){});
@@ -176,10 +178,10 @@ function start(fin){
 
 }
 
-function requireSeed(num,fin){
+function requireSeed(num,from_index,fin){
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/?q='+num);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/databot/'+country_location+'?num='+num,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/databot/'+country_location+'?num='+num+'&from='+from_index,
         timeout: 10000
     },function(error, response, body){
         //console.log("get seed:["+body+"]");

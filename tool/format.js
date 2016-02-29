@@ -40,7 +40,7 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
             body += "\n"+feeds[i]["message"];
         }
         if(feeds[i]["description"]){
-            description += feeds[i]["description"];
+            description = feeds[i]["description"];
         }
         if(result!=""){
             result += "\n@\n";

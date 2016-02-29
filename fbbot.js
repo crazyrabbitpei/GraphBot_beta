@@ -21,6 +21,7 @@ function crawlerFB(token,groupid,key,fin){
     let fields = myModule.fields;
     let info = myModule.info;
     let dir = myModule.dir;
+    let again_time = myModule.again_time;
     let country = myModule.country_location;
     let depth = myModule.depth;
     let appid = myModule.appid;
@@ -35,18 +36,21 @@ function crawlerFB(token,groupid,key,fin){
         if(error){
             console.log("crawlerFB=>talking_about_count,likes:error");
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
+
             setTimeout(function(){
+                console.log("Retry crawlerFB");
                 crawlerFB(token,groupid,key,fin);
-            },5*1000);
+            },again_time*1000);
             return;
         }
         else{
             try{
                 if(typeof body==="undefined"){
-                    console.log("5.");
+
                     setTimeout(function(){
+                        console.log("Retry crawlerFB");
                         crawlerFB(token,groupid,key,fin);
-                    },5*1000);
+                    },again_time*1000);
                     return;
                 }
                 else{
@@ -66,9 +70,16 @@ function crawlerFB(token,groupid,key,fin){
                     }
                     else if(about['error']['message']=="An unexpected error has occurred. Please retry your request later."){
                         setTimeout(function(){
-                            console.log("6.");
+                            console.log("6.Retry");
                             crawlerFB(token,groupid,key,fin);
-                        },5*1000);
+                        },again_time*1000);
+                        return;
+                    }
+                    else if(feeds['error']['message'].indexOf("retry")!=-1){
+                        setTimeout(function(){
+                            console.log("6.Retry");
+                            crawlerFB(token,groupid,key,fin);
+                        },again_time*1000);
                         return;
                     }
                     else{
@@ -109,6 +120,7 @@ function crawlerFB(token,groupid,key,fin){
                     }
 
                     fs.writeFile(dir+"/"+country+"/"+groupid+"/about","id:"+about['id']+"\nlocation:"+location+"\ntalking_about_count:"+about['talking_about_count']+"\nlikes:"+about['likes']+"\nwere_here_count:"+about['were_here_count']+"\ncategory:"+about['category'],function(){});
+                    fs.appendFile(dir+"/"+country+"/groups_info.list","@\n@id:"+about['id']+"\n@location:"+location+"\n@talking_about_count:"+about['talking_about_count']+"\n@likes:"+about['likes']+"\n@were_here_count:"+about['were_here_count']+"\n@category:"+about['category']+"\n",function(){});
                 }
             }
         }
@@ -121,19 +133,23 @@ function crawlerFB(token,groupid,key,fin){
         if(error){
             //fs.appendFile(dir+"/"+country+"/"+groupid+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB:"+body+"\n",function(){});
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB:"+body+"\n",function(){});
+
             setTimeout(function(){
+                console.log("Retry crawlerFB");
                 crawlerFB(token,groupid,key,fin);
-            },5*1000);
+            },again_time*1000);
             return;
         }
         else{
             //console.log("error:"+error+" body:"+body);
             try{
                 if(typeof body==="undefined"){
+
                     setTimeout(function(){
+                        console.log("Retry crawlerFB");
                         console.log("1.");
                         crawlerFB(token,groupid,key,fin);
-                    },5*1000);
+                    },again_time*1000);
                 }
                 else{
                     var feeds = JSON.parse(body);
@@ -149,9 +165,9 @@ function crawlerFB(token,groupid,key,fin){
             finally{
                 if(typeof feeds ==="undefined"){
                     setTimeout(function(){
-                        console.log("2.");
+                        console.log("Retry crawlerFB");
                         crawlerFB(token,groupid,key,fin);
-                    },5*1000);
+                    },again_time*1000);
                     return;
                 }
                 if(feeds['error']){
@@ -160,10 +176,18 @@ function crawlerFB(token,groupid,key,fin){
                         process.exit(0);
                     }
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
+
                         setTimeout(function(){
-                            console.log("2.");
+                            console.log("Retry crawlerFB");
                             crawlerFB(token,groupid,key,fin);
-                        },5*1000);
+                        },again_time*1000);
+                        return;
+                    }
+                    else if(feeds['error']['message'].indexOf("retry")!=-1){
+                        setTimeout(function(){
+                            console.log("Retry crawlerFB");
+                            crawlerFB(token,groupid,key,fin);
+                        },again_time*1000);
                         return;
                     }
                     else{
@@ -280,6 +304,7 @@ function crawlerFB(token,groupid,key,fin){
 
 function updateid2Server(key,id_serverip,id_serverport,country,id,time,fin)
 {
+    let again_time = myModule.again_time;
     let dir = myModule.dir;
     let ids = id+"~"+time;
     request({
@@ -289,9 +314,11 @@ function updateid2Server(key,id_serverip,id_serverport,country,id,time,fin)
         if(error){
             fs.appendFile(dir+"/err_log","--\n["+id+"] updateid2Server:"+error,function(){});
             console.log("["+id+"] updateid2Server:error");
+
             setTimeout(function(){
+                console.log("Retry updateid2Server");
                 updateid2Server(key,id_serverip,id_serverport,country,id,time,fin);
-            },5*1000);
+            },again_time*1000);
         }
         else if(body=="illegal request"){
             fs.appendFile(dir+"/err_log","--\n["+id+"] updateid2Server:illegal request",function(){});
@@ -341,6 +368,7 @@ exports.deleteid2Server = deleteid2Server;
 
 function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
     //var groupid = myModule.groupid;
+    let again_time = myModule.again_time;
     let version = myModule.version;
     let limit = myModule.limit;
     let dir = myModule.dir;
@@ -358,17 +386,21 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
     },function(error, response, body){
         if(error){
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
+
             setTimeout(function(){
+                console.log("Retry nextPage");
                 nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
-            },5*1000);
+            },again_time*1000);
         }
         else{
             try{
-                if(typeof body===undefined){
+                if(typeof body==="undefined"){
+
                     setTimeout(function(){
+                        console.log("Retry nextPage");
                         console.log("3.");
                         nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
-                    },5*1000);
+                    },again_time*1000);
                     return;
                 }
                 else{
@@ -382,11 +414,12 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                 return;
             }
             finally{
-                if(typeof feeds === undefined){
+                if(typeof feeds === "undefined"){
+
                     setTimeout(function(){
-                        console.log("3.1.");
+                        console.log("Retry nextPage");
                         nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
-                    },5*1000);
+                    },again_time*1000);
                     return;
                 }
                 if(feeds['error']){
@@ -396,9 +429,16 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                     }
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
                         setTimeout(function(){
-                            console.log("4.");
+                            console.log("4.Retry");
                             nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
-                        },5*1000);
+                        },again_time*1000);
+                        return;
+                    }
+                    else if(feeds['error']['message'].indexOf("retry")!=-1){
+                        setTimeout(function(){
+                            console.log("4.Retry");
+                            nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
+                        },again_time*1000);
                         return;
                     }
                     else{
@@ -471,6 +511,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
 
 function isCrawled(key,id_serverip,id_serverport,country,time,id,fin){
     let dir = myModule.dir;
+    let again_time = myModule.again_time;
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/search/'+id+'/');
     request({
         uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/databot/search/'+country+'?ids='+id,
@@ -479,9 +520,11 @@ function isCrawled(key,id_serverip,id_serverport,country,time,id,fin){
         if(error){
             console.log("bot can't link to manager:"+error);
             fin("error",0,0);
+
             setTimeout(function(){
+                console.log("Retry isCrawled");
                 isCrawled(key,id_serverip,id_serverport,country,time,id,fin);
-            },5*1000);
+            },again_time*1000);
             return;
         }
         if(body=="illegal request"){//url request error

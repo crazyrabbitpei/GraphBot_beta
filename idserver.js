@@ -99,12 +99,12 @@ app.get('/fbjob/:key/v1.0/databot/:action(search|update)/:country?',function(req
     
     var action = req.params.action;
     var country = req.params.country;
-    if(typeof country=="undefined"){
+    if(typeof country==="undefined"){
         country = "Taiwan";
     }
     var ids = req.query.ids;//for update/search action
     console.log("--\naction:"+action);
-    if(typeof ids =="undefined"){
+    if(typeof ids ==="undefined"){
         res.send("must contains id");
         return;
     }
@@ -133,7 +133,7 @@ app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
     var i,j,k;
     var key = req.params.key;
     var country = req.params.country;
-    if(typeof country=="undefined"){
+    if(typeof country==="undefined"){
         country = "Taiwan";
     }
     if(!map_botkey.has(key)){
@@ -141,7 +141,7 @@ app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
         return;
     }
     var ids = req.query.ids;
-    if(typeof ids =="undefined"){
+    if(typeof ids ==="undefined"){
         res.send("must contains id");
         return;
     }
@@ -324,7 +324,7 @@ app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
 /*------get a set of seed to crawler--------*/
 /*
  * for both seed and data bot
-    require [num] to cralwer<=/?num=number, default=10
+    require [num] to cralwer<=/?q=num, default=10
     - for data bot
     - for seeds bot
 */
@@ -333,7 +333,8 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     var key = req.params.key;
     var type = req.params.type;
     var country = req.params.country;
-    if(typeof country=="undefined"){
+
+    if(typeof country==="undefined"){
         country = "Taiwan";
     }
     if(!map_botkey.has(key)){
@@ -341,9 +342,10 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         return;
     }
     var num = req.query.num;
-    console.log("1.num:"+num);
+    var from_index = req.query.from;
+    console.log("1.num:"+num+"\n2.from index:"+from_index);
     var priorty = req.query.priorty;//not yet ,for data/seed priorty. Hasn't crawled first.
-    if(typeof num=="undefined"){
+    if(typeof num==="undefined"){
         num=10;
     }
     var values="";
@@ -482,11 +484,19 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         }
         console.log("--["+country+"]--\nrequest seed num:"+num);
         if(country=="Taiwan"){
+            if(typeof from_index!=="undefined"&&from_index!=-1){
+                from_seed_idIndex=from_index;
+                all_crawled=1;
+            }
             console.log("from local index:"+from_seed_idIndex);
             end_index = from_seed_idIndex+num;
             console.log("to local index:"+end_index);
         }
         else{
+            if(typeof from_index!=="undefined"&&from_index!=-1){
+                foreign_from_seed_idIndex=from_index;
+                all_crawled=1;
+            }
             console.log("from foreign index:"+foreign_from_seed_idIndex);
             end_index = foreign_from_seed_idIndex+num;
             console.log("to foreign index:"+end_index);
@@ -510,11 +520,19 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         }
         console.log("--["+country+"]--\nrequest data seed num:"+num);
         if(country=="Taiwan"){
+            if(typeof from_index!=="undefined"&&from_index!=-1){
+                from_data_idIndex=from_index;
+                all_crawled=1;
+            }
             console.log("from local index:"+from_data_idIndex);
             end_index = from_data_idIndex+num;
             console.log("to local index:"+end_index);
         }
         else{
+            if(typeof from_index!=="undefined"&&from_index!=-1){
+                foreign_from_data_idIndex=from_index;
+                all_crawled=1;
+            }
             console.log("from foreign index:"+foreign_from_data_idIndex);
             end_index = foreign_from_data_idIndex+num;
             console.log("to foreign index:"+end_index);
@@ -744,12 +762,12 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
     var country = req.params.country;
     var ids = req.query.ids;
     var i;
-    if(typeof country=="undefined"){
+    if(typeof country==="undefined"){
         country = "Taiwan";
     }
     var nc_count=0,c_count=0;
     if(action=="search"){
-        if(typeof ids=="undefined"){
+        if(typeof ids==="undefined"){
             res.send("must contains id");
             return;
         }
@@ -766,7 +784,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
             values = foreign_map_key.values();
         }
         for(i=0;i<values.length;i++){
-            if(type=="seedbot"){
+            if(type=="seed"){
                 if(values[i]!="c"){
                     nc_count++;
                 }
@@ -774,7 +792,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
                     c_count++;
                 }
             }
-            if(type=="databot"){
+            if(type=="data"){
                 if(values[i]!="y"&&values[i]!="c"){
                     c_count++;
                 }
@@ -1043,7 +1061,7 @@ function ReadTWaddress(){
         var short_county_en,county_en,block_en,county_en_temp;
         block_en = part[2];
 
-        if(typeof county_en=="undefined"){
+        if(typeof county_en==="undefined"){
             county_en = part[2];
         }
         
@@ -1051,7 +1069,7 @@ function ReadTWaddress(){
         county_en_temp = county_en.split(" County");
         county_en_temp = county_en_temp[0].split(" City");
 
-        if(typeof county_en_temp[0]!="undefined"){
+        if(typeof county_en_temp[0]!=="undefined"){
             short_county_en = county_en_temp[0];
         }
 
@@ -1091,7 +1109,7 @@ function ReadID(){
     });
     lr.on('line', function (line) {
         var part = line.split(",");
-        if(part[1]!="undefined"&&typeof part[1]!="undefined"&&part[0]!="undefined"&&typeof part[0]!="undefined"){
+        if(part[1]!="undefined"&&typeof part[1]!=="undefined"&&part[0]!="undefined"&&typeof part[0]!=="undefined"){
             map_key.set(part[0],part[1]);
             //console.log("read:"+part[0]+","+part[1]);
         }
@@ -1117,7 +1135,7 @@ function ReadForeignID(){
     });
     lr.on('line', function (line) {
         var part = line.split(",");
-        if(part[1]!="undefined"&&typeof part[1]!="undefined"&&part[0]!="undefined"&&typeof part[0]!="undefined"){
+        if(part[1]!="undefined"&&typeof part[1]!=="undefined"&&part[0]!="undefined"&&typeof part[0]!=="undefined"){
             foreign_map_key.set(part[0],part[1]);
             //console.log("read foreign id:"+part[0]+","+part[1]);
         }
@@ -1150,7 +1168,7 @@ function clearID(){
     var result="";
     var foreign_result="";
     map_key.forEach(function(value, key) {
-        if(value!=""&&key!=""&&value!=-1&&typeof value !==undefined &&typeof key!==undefined&&key!="undefined"&&value!="undefined") {
+        if(value!=""&&key!=""&&value!=-1&&typeof value !=="undefined" &&typeof key!=="undefined"&&key!="undefined"&&value!="undefined") {
             //console.log(key + " : " + value);
             result+=key+","+value+"\n";
         }
@@ -1168,7 +1186,7 @@ function clearID(){
 
 
     foreign_map_key.forEach(function(value, key) {
-        if(value!=-1&&typeof value !="undefined"&&typeof key!="undefined"&&key!="undefined"&&value!="undefined") {
+        if(value!=-1&&typeof value !=="undefined"&&typeof key!=="undefined"&&key!="undefined"&&value!="undefined") {
             //console.log(key + " : " + value);
             foreign_result+=key+","+value+"\n";
         }
