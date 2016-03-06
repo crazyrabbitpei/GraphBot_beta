@@ -74,7 +74,7 @@ function crawlerFB(token,groupid,key,fin){
                         },again_time*1000);
                         return;
                     }
-                    else if(feeds['error']['message'].indexOf("retry")!=-1){
+                    else if(about['error']['message'].indexOf("retry")!=-1){
                         setTimeout(function(){
                             console.log("6.Another Retry");
                             crawlerFB(token,groupid,key,fin);
