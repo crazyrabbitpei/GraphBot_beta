@@ -36,19 +36,18 @@ function crawlerFB(token,groupid,key,fin){
         if(error){
             if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
                 setTimeout(function(){
-                    console.log("Retry crawlerFB=>about");
+                    console.log("Retry crawlerFB=>about:"+error.code);
                     crawlerFB(token,groupid,key,fin);
-                },again_time*1000*30);//1 minutes
+                },again_time*1000);//1 minutes
                 return;
             }
-            console.log("crawlerFB=>talking_about_count,likes:error");
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
         }
         else{
             try{
                 if(typeof body==="undefined"){
                     setTimeout(function(){
-                        console.log("Retry crawlerFB");
+                        console.log("Retry crawlerFB:body===undefined");
                         crawlerFB(token,groupid,key,fin);
                     },again_time*1000);
                     return;
@@ -133,9 +132,9 @@ function crawlerFB(token,groupid,key,fin){
         if(error){
             if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
                 setTimeout(function(){
-                    console.log("Retry crawlerFB");
+                    console.log("Retry crawlerFB:"+error.code);
                     crawlerFB(token,groupid,key,fin);
-                },again_time*1000*30);//1 minutes
+                },again_time*1000);//1 minutes
                 return;
             }
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB:"+body+"\n",function(){});
@@ -146,7 +145,7 @@ function crawlerFB(token,groupid,key,fin){
                 if(typeof body==="undefined"){
 
                     setTimeout(function(){
-                        console.log("Retry crawlerFB");
+                        console.log("Retry crawlerFB:body===undefined");
                         console.log("1.");
                         crawlerFB(token,groupid,key,fin);
                     },again_time*1000);
@@ -165,7 +164,8 @@ function crawlerFB(token,groupid,key,fin){
             finally{
                 if(typeof feeds ==="undefined"){
                     setTimeout(function(){
-                        console.log("Retry crawlerFB");
+                        console.log("Retry crawlerFB:feeds===undefined");
+                        console.log("2.");
                         crawlerFB(token,groupid,key,fin);
                     },again_time*1000);
                     return;
@@ -178,14 +178,14 @@ function crawlerFB(token,groupid,key,fin){
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
 
                         setTimeout(function(){
-                            console.log("Retry crawlerFB");
+                            console.log("Retry crawlerFB:unexpected");
                             crawlerFB(token,groupid,key,fin);
                         },again_time*1000);
                         return;
                     }
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
                         setTimeout(function(){
-                            console.log("Retry crawlerFB");
+                            console.log("Retry crawlerFB:unknown");
                             crawlerFB(token,groupid,key,fin);
                         },again_time*1000);
                         return;
@@ -219,7 +219,9 @@ function crawlerFB(token,groupid,key,fin){
                     fin("error:feeds['data']");
                     return;
                 }
+
                 console.log("--["+groupid+"] start\n"+feeds['data'].length);
+
                 if(feeds['data'].length!=0){
                     var now = new Date();
                     var date = dateFormat(now, "yyyymmdd");
@@ -274,9 +276,12 @@ function crawlerFB(token,groupid,key,fin){
                                         // console.log("next=>"+feeds['paging'].next);
                                         //if(depth-1!=0){
                                         if(typeof feeds['paging'] !=="undefined"){
+
+                			setTimeout(function(){
                                             nextPage(key,feeds['paging'].next,depth-1,token,groupid,last_time,now_time,function(next_result){
                                                 fin(next_result);
                                             });
+					},300);
                                         }
                                         //}
                                         else{
@@ -387,9 +392,9 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
         if(error){
             if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
                 setTimeout(function(){
-                    console.log("Retry nextPage");
+                    console.log("Retry nextPage:"+error.code);
                     nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
-                },again_time*1000*30);//1 minutes
+                },again_time*1000);//1 minutes
                 return;
             }
             fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
@@ -398,7 +403,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
             try{
                 if(typeof body==="undefined"){
                     setTimeout(function(){
-                        console.log("Retry nextPage");
+                        console.log("Retry nextPage:body===undefined");
                         console.log("3.");
                         nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
                     },again_time*1000);
@@ -418,7 +423,8 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                 if(typeof feeds === "undefined"){
 
                     setTimeout(function(){
-                        console.log("Retry nextPage");
+                        console.log("Retry nextPage:feeds===undefined");
+                        console.log("4.");
                         nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
                     },again_time*1000);
                     return;
@@ -430,7 +436,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                     }
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
                         setTimeout(function(){
-                            console.log("4.Retry");
+                            console.log("4.Retry:unexpected");
                             nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },again_time*1000);
                         return;
@@ -523,7 +529,7 @@ function isCrawled(key,id_serverip,id_serverport,country,time,id,fin){
             fin("error",0,0);
 
             setTimeout(function(){
-                console.log("Retry isCrawled");
+                console.log("Retry isCrawled:myserver");
                 isCrawled(key,id_serverip,id_serverport,country,time,id,fin);
             },again_time*1000);
             return;

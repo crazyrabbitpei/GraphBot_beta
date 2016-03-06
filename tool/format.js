@@ -12,6 +12,8 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
     var result="";
     var i=0,j=0;
     while(i<feeds.length){
+	description="";
+	body="";
         //time compare
         //console.log("["+i+"]created_time:"+feeds[i]["created_time"]+" end_flag:"+end_flag);
         if(feeds[i]["created_time"]<=end_flag && end_flag!=0){
@@ -21,7 +23,14 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
             return ;
         }
         //console.log("=>pass");
-        title = feeds[i]["from"].name;
+	if(feeds[i]["from"]){
+        	title = feeds[i]["from"].name;
+        	source = "fb/"+feeds[i]["from"].name;
+	}
+	else{
+		title = feeds[i]["id"];
+        	source = "fb/"+feeds[i]["id"];
+	}
         if(!feeds[i]["link"]){
             body="";
         }
@@ -32,8 +41,6 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
             body = feeds[i]["link"];
 
         }
-
-        source = "fb/"+feeds[i]["from"].name;
         url = feeds[i]["id"];
         time = feeds[i]["created_time"];
         if(feeds[i]["message"]){

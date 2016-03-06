@@ -32,6 +32,7 @@ try {
     var dir = service1['dir'];
     var country_location = service1['country'];
     var again_time = service1['again_time'];
+    var grab_limit = service1['grab_limit'];
 
     var service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
     var appid = service2['id'];
@@ -50,6 +51,7 @@ try {
     exports.info=info;
     exports.dir=dir;
     exports.again_time=again_time;
+    exports.grab_limit=grab_limit;
     exports.country_location=country_location;
     
     exports.appid=appid;
@@ -96,7 +98,7 @@ function setpromise(){
                 fs.appendFile('./log/'+date+'.oklist',"start:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
                 });
             }
-            if(success_url<10){
+            if(success_url<grab_limit){
                 setpromise();          
             }
             else{
@@ -114,9 +116,9 @@ function setpromise(){
             console.log("else:"+stat);
         }
     }).catch(function(error){
-        var now  = new Date();
-        var date = dateFormat(now, "yyyymmdd");
-        fs.appendFile('./log/'+date+'+.err','error:'+error+'\n',function(){
+        let now  = new Date();
+        let date = dateFormat(now, "yyyymmdd");
+        fs.appendFile('./log/'+date+'.err','error:'+error+'\n',function(){
             console.log("promise error occur");
         });
     });
