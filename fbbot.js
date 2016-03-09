@@ -277,11 +277,11 @@ function crawlerFB(token,groupid,key,fin){
                                         //if(depth-1!=0){
                                         if(typeof feeds['paging'] !=="undefined"){
 
-                			setTimeout(function(){
-                                            nextPage(key,feeds['paging'].next,depth-1,token,groupid,last_time,now_time,function(next_result){
-                                                fin(next_result);
-                                            });
-					},300);
+                                            setTimeout(function(){
+                                                nextPage(key,feeds['paging'].next,depth-1,token,groupid,last_time,now_time,function(next_result){
+                                                    fin(next_result);
+                                                });
+                                            },300);
                                         }
                                         //}
                                         else{
@@ -297,6 +297,15 @@ function crawlerFB(token,groupid,key,fin){
                     });
                 }
                 else{
+                    var now = new Date();
+                    var date = dateFormat(now, "isoDateTime");
+                    updateid2Server(key,id_serverip,id_serverport,country,groupid,date,function(st){
+                        if(st=="error"){
+                            fs.appendFile(dir+"/err_log","--\n["+groupid+"] crawlerFB:error:updateid2Server\n",function(){});
+                            fin("error:updateid2Server");
+                            return;
+                        }
+                    });
                     fin('endTONext@Gais:'+groupid);
                     return;
                 }
@@ -358,7 +367,8 @@ function deleteid2Server(key,id_serverip,id_serverport,id,fin){
         else if(body==""){
             body=0;
             console.log("delete seed fail");
-            deleteid2Server(key,id_serverip,id_serverport,id,fin);
+            fs.appendFile(dir+"/dlete_err_log","--\n["+id+"] deleteid2Server:"+body,function(){});
+            //deleteid2Server(key,id_serverip,id_serverport,id,fin);
             return;
         }
         else{

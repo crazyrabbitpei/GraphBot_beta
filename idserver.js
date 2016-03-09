@@ -84,19 +84,19 @@ server.listen(apiport,apiip,function(){
 
 /*---------for url manage--------------
  * for data bot
-    - search an id 
-    - update a id:update/country/?ids=id:time
-        -country default is Taiwan
-        -ids ex:12345:2016....
-        -notice: this API CAN't BE used to delete or insert seed
---------------------------------------*/
+ - search an id 
+ - update a id:update/country/?ids=id:time
+ -country default is Taiwan
+ -ids ex:12345:2016....
+ -notice: this API CAN't BE used to delete or insert seed
+ --------------------------------------*/
 app.get('/fbjob/:key/v1.0/databot/:action(search|update)/:country?',function(req,res){
     var key = req.params.key;
     if(!map_botkey.has(key)){
         res.send("illegal request");
         return;
     }
-    
+
     var action = req.params.action;
     var country = req.params.country;
     if(typeof country==="undefined"){
@@ -122,13 +122,13 @@ app.get('/fbjob/:key/v1.0/databot/:action(search|update)/:country?',function(req
 });
 /*---------for url manage--------------
  * for seed bot
-    - update a id:update/country/?ids=id1:c1,id2:c2...
-    -country default is Taiwan
-    - :"c" => reprsent "crawled"
-        - if map_key(id) has a timestamp then do not update "c"
-    - ids=id1:c1,id2:c2...
-    -notice: this API CAN't BE used to delete or insert seed
---------------------------------------*/
+ - update a id:update/country/?ids=id1:c1,id2:c2...
+ -country default is Taiwan
+ - :"c" => reprsent "crawled"
+ - if map_key(id) has a timestamp then do not update "c"
+ - ids=id1:c1,id2:c2...
+ -notice: this API CAN't BE used to delete or insert seed
+ --------------------------------------*/
 app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
     var i,j,k;
     var key = req.params.key;
@@ -162,7 +162,7 @@ app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
         if(parts_id==""||parts_status==""){
             continue;
         }
-        
+
         if(result==""){
             result+=ids_set[i];
         }
@@ -179,9 +179,9 @@ app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
 /*------insert new seed--------*/
 /*
  * for seed bot and data bot
-    ?ids=231:Taipei,1312:Taiwan...
-    a set of id
-*/
+     ?ids=231:Taipei,1312:Taiwan...
+     a set of id
+     */
 /*------insert new seed--------*/
 app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
     var i,j;
@@ -192,13 +192,14 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
     }
 
     var seeds = req.query.ids;
-    //console.log("=>insert:"+seeds);
+    console.log("=>insert:"+seeds);
 
     var result="";
     var parts = seeds.split(",");
     var loca_parts="";
     var id="";
     for(i=0;i<parts.length;i++){
+        console.log(i+":"+parts[i]);
         if(parts[i]==""){
             continue;
         }
@@ -219,14 +220,26 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
             continue;
         }
         //TODO:use address API
-        if(loca=="Taiwan"||loca=="none"||loca=="台灣"||loca=="臺灣"){
+        console.log("location:["+map_tw_address.get(loca)+"]");
+        var small_loca1 = S(loca).left(3).s;
+        var small_loca2 = S(loca).left(2).s;
+        if(map_tw_address.get(loca)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
             if(map_size>=url_mapSize){
                 console.log("map_size>=url_mapSize:"+map_size);
                 res.send("full");
                 return;
             }
             if(!map_key.has(id)){
-                map_key.set(id,"y");
+                console.log("insert seed to Taiwan:"+id);
+                if(foreign_map_key.has(id)){
+                    var timestamp = foreign_map_key.get(id);
+                    map_key.set(id,timestamp);
+                    foreign_map_key.remove(id);
+                }
+                else{
+                    map_key.set(id,"y");
+                }
+
                 if(i!=0){
                     result+=","+id;
                 }
@@ -242,39 +255,61 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
                 return;
             }
             if(!foreign_map_key.has(id)){
-                foreign_map_key.set(id,"y");
+                if(map_key.has(id)){
+                    var timestamp = map_key.get(id);
+                    foreign_map_key.set(id,timestamp);
+                    map_key.remove(id);
+                }
+                else{
+                    foreign_map_key.set(id,"y");
+                }
                 if(i!=0){
                     result+=","+id;
                 }
                 else{
                     result=id;
                 }
+                console.log("insert seed to foreign:"+id);
             }
-            
+
         }
     }
     if(parts.length==0){
         loca_parts = parts[i].split(":");
         id = loca_parts[0];
         loca = loca_parts[1];
+        var small_loca1 = S(loca).left(3).s;
+        var small_loca2 = S(loca).left(2).s;
         //TODO:use address API
-        if(loca=="Taiwan"||loca=="none"||loca=="台灣"||loca=="臺灣"){
+        //if(typeof map_tw_address.get(loca)!=="undefined"){
+        if(map_tw_address.get(loca)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
             if(!map_key.has(id)){
-                map_key.set(id,"y");
+                if(foreign_map_key.has(id)){
+                    var timestamp = foreign_map_key.get(id);
+                    map_key.set(id,timestamp);
+                    foreign_map_key.remove(id);
+                }
+                else{
+                    map_key.set(id,"y");
+                }
                 result=id;
                 console.log("insert seed to Taiwan:"+id);
             }
         }
         else{
             if(!foreign_map_key.has(id)){
-                foreign_map_key.set(id,"y");
+                if(map_key.has(id)){
+                    var timestamp = map_key.get(id);
+                    foreign_map_key.set(id,timestamp);
+                    map_key.remove(id);
+                }
+                else{
+                    foreign_map_key.set(id,"y");
+                }
                 result=id;
-                console.log("insert seed to foreign:"+result);
+                console.log("insert seed to foreign:"+id);
             }
         }
-    }
-    else if(i>0){
-            console.log("insert seed:"+result);
     }
     res.send(result);
 });
@@ -282,9 +317,9 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
 /*------delete seed--------*/
 /*
  * for seed bot and data bot
-    ?ids=231,1312...
-    a set of id
-*/
+     ?ids=231,1312...
+     a set of id
+     */
 /*------delete seed--------*/
 app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
     var i,j;
@@ -310,7 +345,7 @@ app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
                 result = parts[i];
             }
         }
-        else if(foreign_map_key.has(parts[i])){
+        if(foreign_map_key.has(parts[i])){
             foreign_map_key.remove(parts[i]);
             if(result!=""){
                 result+=","+parts[i];
@@ -319,17 +354,17 @@ app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
                 result = parts[i];
             }
         }
-            
+
     }
     res.send(result);
 });
 /*------get a set of seed to crawler--------*/
 /*
  * for both seed and data bot
-    require [num] to cralwer<=/?q=num, default=10
-    - for data bot
-    - for seeds bot
-*/
+ require [num] to cralwer<=/?q=num, default=10
+ - for data bot
+ - for seeds bot
+ */
 /*------get a set of seed to crawler--------*/
 app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req,res){
     var key = req.params.key;
@@ -353,18 +388,18 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     var values="";
     num = parseInt(num);
     if(country=="Taiwan"){
-       total_num = map_key.count();
-       values = map_key.values();
+        total_num = map_key.count();
+        values = map_key.values();
     }
     else{
-       total_num = foreign_map_key.count();
-       values = foreign_map_key.values();
+        total_num = foreign_map_key.count();
+        values = foreign_map_key.values();
     }
 
     var result="";
     var index=0;
     var end_index=0;
-    
+
     var nc_count=0,c_count=0;
     var jump_flag=0;
     var i,temp_index=-1;
@@ -450,17 +485,17 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         }
     }
     /*
-    if(num>nc_count){
-        num = nc_count;
-    }
-    */
+       if(num>nc_count){
+       num = nc_count;
+       }
+       */
     if(nc_count==0){
         all_crawled=1;
     }
     else if(nc_count!=0){
         all_crawled=0;
     }
-    
+
     if(type=="seedbot"){
         if(country=="Taiwan"){
             if((from_seed_idIndex>=total_num)){
@@ -504,7 +539,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             console.log("to foreign index:"+end_index);
         }
     }
-    
+
     else if(type=="databot"){
         if(country=="Taiwan"){
             if((from_data_idIndex+num)>total_num){
@@ -515,7 +550,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             if((foreign_from_data_idIndex+num)>total_num){
                 foreign_from_data_idIndex=0;
             }
-            
+
         }
         if(num>total_num){
             num = total_num;
@@ -538,7 +573,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             console.log("from foreign index:"+foreign_from_data_idIndex);
             end_index = foreign_from_data_idIndex+num;
             console.log("to foreign index:"+end_index);
-            
+
         }
     }
 
@@ -753,9 +788,9 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
 /*-------listing and searching url list-----------*/
 /*
  * for both seed and data bot
-    - search:will use ids, not use type
-    - list:will use type, not use ids
-*/
+ - search:will use ids, not use type
+ - list:will use type, not use ids
+ */
 /*-------listing and searching url list-----------*/
 app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:country?',function(req,res){
     var key = req.params.key;
@@ -786,7 +821,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
             values = foreign_map_key.values();
         }
         for(i=0;i<values.length;i++){
-            if(type=="seed"){
+            if(type=="seedbot"){
                 if(values[i]!="c"){
                     nc_count++;
                 }
@@ -794,7 +829,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
                     c_count++;
                 }
             }
-            if(type=="data"){
+            if(type=="databot"){
                 if(values[i]!="y"&&values[i]!="c"){
                     c_count++;
                 }
@@ -811,9 +846,9 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
 /*-------listing and searching Taiwan's address list-----------*/
 /*
  * for both seed and data bot
-    - search:search?address=location_name ex:address=Taipei  or address=臺北
-    - list:list all address I have in Taiwan
-*/
+ - search:search?address=location_name ex:address=Taipei  or address=臺北
+ - list:list all address I have in Taiwan
+ */
 /*-------listing and searching url list-----------*/
 app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
     var action = req.params.action;
@@ -821,10 +856,10 @@ app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
     if(action=="list"){
         var result="";
         map_tw_address.forEach(function(value, key) {
-            if(result==""){
+            if(result==""&&key!=""){
                 result=key+","+value;
             }
-            else{
+            else if(key!=""){
                 result+="\n"+key+","+value;
             }
         });
@@ -832,7 +867,16 @@ app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
     }
     else if(action=="search"){
         var address = req.query.address;
-        res.send(map_tw_address.get(address));
+        var small_address1 = S(address).left(3).s;
+        var small_address2 = S(address).left(2).s;
+        var raddress="";
+        if((raddress = map_tw_address.get(address))||(raddress = map_tw_address.get(small_address1))||(raddress = map_tw_address.get(small_address2))){
+        //if((raddress = map_tw_address.get(address))||(raddress = (address=="Taiwan"))||(raddress = (address=="台灣"))||(raddress = (address=="臺灣"))||(raddress = map_tw_address.get(small_address1))||(raddress = map_tw_address.get(small_address2))){
+            res.send(raddress);
+        }
+        else{
+            res.send("none");
+        }
     }
 });
 /*(not yet)for new a bot action, bot manager*/
@@ -848,14 +892,14 @@ app.get('/fbjob/:key/grab_list/:action(search|insert|delete)/v1.0/',function(req
     var type = req.query.q;
     if(action=="search"){
         if(map_grabtype.has(type)){
-        
+
         }
     }
     else if(action=="insert"){
-    
+
     }
     else if(action=="delete"){
-    
+
     }
 });
 
@@ -1041,8 +1085,8 @@ function ReadTWaddress(){
         var t_county_en,t_block_en;
         /*file format*/
         /*
-        100,臺北市中正區,Zhongzheng Dist.,Taipei City
-        */
+           100,臺北市中正區,Zhongzheng Dist.,Taipei City
+           */
         var part = line.split(",");
         /*cut chinese county*/
         var county = part[1];
@@ -1053,11 +1097,11 @@ function ReadTWaddress(){
         else{
             short_county_cht = S(county).left(2).s;
         }
-        
+
         county_cht = S(county).left(3).s;
         block_cht_temp = county.split(county_cht);
         block_cht = block_cht_temp[1];
-        
+
         /*cut english county*/
         var county_en = part[3];
         var short_county_en,county_en,block_en,county_en_temp;
@@ -1066,7 +1110,7 @@ function ReadTWaddress(){
         if(typeof county_en==="undefined"){
             county_en = part[2];
         }
-        
+
         short_county_en = county_en;
         county_en_temp = county_en.split(" County");
         county_en_temp = county_en_temp[0].split(" City");
@@ -1091,6 +1135,9 @@ function ReadTWaddress(){
     });
     lr.on('end', function () {
         // All lines are read, file is closed now.
+        map_tw_address.set("台灣","Taiwan");
+        map_tw_address.set("臺灣","Taiwan");
+        map_tw_address.set("Taiwan","臺灣");
         console.log("read map_tw_address done");
     });
 
@@ -1153,17 +1200,17 @@ function ReadBotID(){
     var key="",name="";
     var i;
     for(i=0;i<service["data"].length;i++){
-         key = service["data"][i]["key"];
-         name = service["data"][i]["name"];
-         console.log("bot:"+key+" name:"+name);
-         map_botkey.set(key,name);
+        key = service["data"][i]["key"];
+        name = service["data"][i]["name"];
+        console.log("bot:"+key+" name:"+name);
+        map_botkey.set(key,name);
     }
     for(i=0;i<service["grab_type"].length;i++){
-         type = service["grab_type"][i]["type"];
-         console.log("type:"+type);
-         map_grabtype.set(type,1);//ON 1, OFF 0
+        type = service["grab_type"][i]["type"];
+        console.log("type:"+type);
+        map_grabtype.set(type,1);//ON 1, OFF 0
     }
-    
+
 
 }
 function clearID(){

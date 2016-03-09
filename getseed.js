@@ -24,40 +24,46 @@ var id_serverport = service1['id_serverport'];
 var key = service1['crawlerkey'];
 var country = service1['country'];
 var seed_require_Interval = service1['seed_require_Interval'];
+
+exports.service1 = service1;
+
 //likes?fields=talking_about_count,likes
 var seed_id;
 var again_flag=0;
 var old_check=0;
 /*
-for(seed_id=0;seed_id<seeds.length;seed_id++){
-    console.log("seed:"+seeds[seed_id]['id']);
-    insertSeed(seeds[seed_id]['id'],function(status){
-        //console.log(status);
-    });
-    getSeed(seeds[seed_id]['id'],appid+"|"+yoyo,function(result){
-        if(result!="error"){
-            //console.log("get seed:"+result);
-            insertSeed(result,function(status){
-                //console.log(status);
-            });
-        }
-        else{
-            console.log("init=>getSeed:err_log");
-        }
-    });
+   for(seed_id=0;seed_id<seeds.length;seed_id++){
+   console.log("seed:"+seeds[seed_id]['id']);
+   insertSeed(seeds[seed_id]['id'],function(status){
+//console.log(status);
+});
+getSeed(seeds[seed_id]['id'],appid+"|"+yoyo,function(result){
+if(result!="error"){
+//console.log("get seed:"+result);
+insertSeed(result,function(status){
+//console.log(status);
+});
+}
+else{
+console.log("init=>getSeed:err_log");
+}
+});
 }
 */
-var require_num=50;
-var job = new CronJob({
+if(!module.parent){
+    var require_num=50;
+    var job = new CronJob({
         cronTime:seed_require_Interval,
         onTick:function(){
             requireSeed(require_num,-1);
         },
         start:false,
         timeZone:'Asia/Taipei'
-});
-job.start();
+    });
+    job.start();
+}
 //requireSeed(50);
+
 function requireSeed(num,from_Index){
     socket_num++;
     //console.log("socket_num:"+socket_num);
@@ -76,7 +82,7 @@ function requireSeed(num,from_Index){
         }
         getSeed(body,appid+"|"+yoyo,function(result){
             if(result!="error"){
-                console.log("=>get seed:"+result+"\n");
+                console.log("=>get seed:\n"+result+"\n");
                 insertSeed(result,function(stat){
                     if(stat!="old"){
                         console.log(stat);
@@ -104,19 +110,18 @@ function requireSeed(num,from_Index){
 
 function getSeed(groupid,token,fin){
     console.log("--\nrequest:"+groupid);
-
     socket_num++;
     //console.log("socket_num:"+socket_num);
     //console.log("graph_reauest:"+graph_request);
     request({
-        uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields=location,id",
+        uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields=location,id,name",
         timeout: 10000
     },function(error, response, body){
         try{
-            feeds = JSON.parse(body);
+            var feeds = JSON.parse(body);
         }
         catch(e){
-            console.log("getSeed:"+body);
+            console.log("getSeed:"+e);
             fin("error");
             return;
         }
@@ -125,17 +130,24 @@ function getSeed(groupid,token,fin){
                 console.log("getSeed error:"+feeds['error']['message']);
                 if(feeds['error']['message']=="(#4) Application request limit reached"){
                     console.log("Application request limit reached:"+graph_request);
-                    job.stop();
-                    process.exit(0);
+                    if(!module.parent){
+                        job.stop();
+                        process.exit(0);
+                    }
+
                 }
                 else if(feeds['error']['message'].indexOf("(#100)")!=-1){
-                    job.stop();
+                    if(!module.parent){
+                        job.stop();
+                    }
                 }
                 fin("error");
                 return;
             }
-            updateidServer(groupid,"c");
-            
+            if(!module.parent){
+                updateidServer(groupid,"c");
+            }
+
             var len = Object.keys(feeds).length;
             var page_name="";
             var dot_flag=0;
@@ -147,7 +159,7 @@ function getSeed(groupid,token,fin){
                     dot_flag++;
                     var ids="";
                     for(i=0;i<feeds[page_name]['data'].length;i++){
-                        let loca="none";
+                        var loca="none";
                         if(dot_flag==1&&i==0){
                             if(typeof feeds[page_name]['data'][i]['location'] !="undefined"){
                                 if(typeof feeds[page_name]['data'][i]['location']['country']!= "undefined"){
@@ -214,7 +226,7 @@ function updateidServer(ids,mark)
                     job.start();
                     again_flag=0;
                     socket_num=0;
-                },60000);
+                },60*1000);
             }
         }                                                                                                                                      else if(body=="illegal request"){
             fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] updateidServer:illegal request",function(){});
@@ -246,7 +258,7 @@ function insertSeed(ids,fin){
                     job.start();
                     again_flag=0;
                     socket_num=0;
-                },60000);
+                },60*1000);
             }
             fin("error");
             return;
@@ -295,6 +307,130 @@ function insertSeed(ids,fin){
     });
 }
 
+function getLocation(groupid,token,fin){
+    request({
+        uri:"https://graph.facebook.com/"+version+"/?ids="+groupid+"&access_token="+token+"&fields=location,id,name,talking_about_count,likes,were_here_count,category",
+        timeout: 10000
+    },function(error, response, body){
+        try{
+            var feeds = JSON.parse(body);
+        }
+        catch(e){
+            console.log("getSeed:"+e);
+            fin("error");
+            return;
+        }
+        finally{
+            if(feeds['error']){
+                console.log("getSeed error:"+feeds['error']['message']);
+                if(feeds['error']['message']=="(#4) Application request limit reached"){
+                    console.log("Application request limit reached:"+graph_request);
+                }
+                else if(feeds['error']['message'].indexOf("(#100)")!=-1){
+                }
+                else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
+                    fs.appendFile("./migratedID.record",feeds['error']['message'],function(){});
+                    fin("continue");
+                    return;
+                }
+                fin("error");
+                return;
+            }
+            var len = Object.keys(feeds).length;
+            var page_name="";
+            var dot_flag=0;
+            var i,j,k;
+            var ids="";
+            graph_request++;
+            for(j=0;j<len;j++){
+                page_name = Object.keys(feeds)[j];
+                var loca="none";
+                //console.log(feeds[page_name]['name']);
+                if(typeof feeds[page_name]['location'] !=="undefined"){
+                    if(typeof feeds[page_name]['location']['country']!== "undefined"){
+                        loca = feeds[page_name]['location']['country'];
+                    }
+                    else if(typeof feeds[page_name]['location']['city']!=="undefined"){
+                        loca = feeds[page_name]['location']['city'];
+
+                    }
+                    else if(typeof feeds[page_name]['location']['street']!=="undefined"){
+                        loca = feeds[page_name]['location']['street'];
+                    }
+
+                }
+                if(typeof feeds[page_name]['name']!=="undefined"){
+                    var ischt = feeds[page_name]['name'].match(/[\u4e00-\u9fa5]/ig);//this will include chs
+                    //var ischt = feeds[page_name]['name'].match(/[^\x00-\xff]/ig);//Asia:japan, korea,...
+                    if(ischt!=null){
+                        if(loca=="none"||loca==""){
+                            loca="Taiwan";
+                        }
+                        var record = "@"+
+                                    "\n@id:"+feeds[page_name]['id']+
+                                    "\n@name:"+feeds[page_name]['name']+
+                                    "\n@category:"+feeds[page_name]['category']+
+                                    "\n@likes:"+feeds[page_name]['likes']+
+                                    "\n@talking_about_count:"+feeds[page_name]['talking_about_count']+
+                                    "\n@were_here_count:"+feeds[page_name]['were_here_count']+"\n"
+                                    fs.appendFile("./tw_groups.list",record,function(err){
+                                        if(err){
+                                            console.log(err);
+                                        }
+                                    });
+                    }
+                }
+                if(ids==""){
+                    ids = feeds[page_name]['id'];
+                    ids+=":"+loca;
+                }
+                else{
+                    ids += ","+feeds[page_name]['id'];
+                    ids+=":"+loca;
+                }
+
+            }
+            fin(ids);
+        }
+    });
+}
+function insertSeed4filter(ids,fin){
+    var temp_ids = querystring.stringify({ids:ids});
+    request({
+        //method:'POST',
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?'+temp_ids,
+        //uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?ids='+ids,
+        timeout: 10000
+    },function(error, response, body){
+        if(error){
+            console.log("error:"+body);
+            fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+error,function(){});
+            console.log("insertSeed:"+error);
+            fin("error");
+            return;
+        }
+        if(body=="illegal request"){//url request error
+            fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+body,function(){});
+            console.log("insertSeed:"+body);
+            fin("error");
+            return;
+        }
+        else if(body==""){
+            body=0;
+            //console.log("old:"+temp_ids);
+            fin("old");
+            return;
+        }
+        else if(body=="full"){
+            console.log("url map is full=>cronjob stop:"+body);
+            fin("full");
+        }
+        else{
+            //console.log("insertSeed=>new:"+ids+"\n--\n");
+            fin("insert seed:"+body);
+        }
+    });
+}
 
 function deleteSeed(ids,fin){
     socket_num++;
@@ -342,3 +478,5 @@ function deleteSeed(ids,fin){
     });
 }
 
+exports.insertSeed4filter=insertSeed4filter;
+exports.getLocation=getLocation;
