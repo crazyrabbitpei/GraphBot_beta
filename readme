@@ -1,0 +1,3 @@
+1.fb data bot:node run.js
+2.get group seeds from id_manage list or foreign_id_manage list:node getseed.js
+3.idserver:node idserver.js

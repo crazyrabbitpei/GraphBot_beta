@@ -21,34 +21,42 @@ var key = service1['crawlerkey'];
 var country = service1['country'];
 var seed_require_Interval = service1['seed_require_Interval'];
 
-Readlist("/home/crazyrabbit/GraphBot_beta/service/id_manage",function(ids){
-    var index=0;
-    //console.log("["+index+"]=>"+ids[index]);
-    filter(ids,index);
+var service = JSON.parse(fs.readFileSync('./service/url_manager'));
+var tw_address_filename = service['tw_address'];
+var HashMap = require('hashmap');
+var list_name = "foreign_id_manage";
+Readlist("/home/crazyrabbit/GraphBot_beta/service/"+list_name,function(ids){
+    url_manager.ReadTWaddress(tw_address_filename,function(){
+        var index=0;
+        //console.log("["+index+"]=>"+ids[index]);
+        filter(ids,index,list_name);
+    })
+
 })
 
-function filter(ids,index){
-    url_manager.getLocation(ids[index],appid+"|"+yoyo,function(id_loca){
-        if(id_loca!="error"){
+function filter(ids,index,lname){
+    url_manager.getLocation(lname,ids[index],appid+"|"+yoyo,function(id_loca){
+        if(id_loca!="error"&&id_loca!="continue"){
             console.log("=>get seed:\n"+id_loca+"\n");
-            url_manager.insertSeed4filter(id_loca,function(stat){
+            url_manager.insertSeed4filter(lname,id_loca,function(stat){
                 if(stat!="old"){
                     console.log(stat);
                 }
                 index++;
                 if(index>=ids.length){
+                    console.log("Finish:"+index);
                     return;
                 }
                 else{
                     //console.log("["+index+"]=>"+ids[index]);
-                    filter(ids,index);
+                    filter(ids,index,lname);
                 }
 
             });
         }
         else if(id_loca=="continue"){
             index++;
-            filter(ids,index);
+            filter(ids,index,lname);
         }
     });
     
@@ -61,7 +69,12 @@ function Readlist(filename,fin){
     var cnt=0;
     var id_cnt=0;
     var array_cnt=0;
-    var start=2440;
+    //var start=0;
+    
+    var start=115341;//foreign_id_manage
+    //var start=552;//id_manage
+    
+
     var options = {
         //encoding: 'utf8',
         skipEmptyLines:false
@@ -74,7 +87,7 @@ function Readlist(filename,fin){
     });
     lr.on('line', function (line) {
         var part = line.split(",");
-        if(cnt==50){
+        if(cnt==1){
             if(id_cnt>=start){
                 ids_array.push(ids);
             }

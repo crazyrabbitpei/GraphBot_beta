@@ -179,7 +179,7 @@ app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
 /*------insert new seed--------*/
 /*
  * for seed bot and data bot
-     ?ids=231:Taipei,1312:Taiwan...
+     ?ids=231:Taipei~1312:Taiwan...
      a set of id
      */
 /*------insert new seed--------*/
@@ -195,7 +195,7 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
     console.log("=>insert:"+seeds);
 
     var result="";
-    var parts = seeds.split(",");
+    var parts = seeds.split("~");
     var loca_parts="";
     var id="";
     for(i=0;i<parts.length;i++){
@@ -206,7 +206,7 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
         loca_parts = parts[i].split(":");
         if(loca_parts.length==1){
             id = loca_parts[0];
-            loca = "none";
+            loca = "Other";
         }
         else if(loca_parts.length==2){
             id = loca_parts[0];
@@ -233,7 +233,12 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
                 console.log("insert seed to Taiwan:"+id);
                 if(foreign_map_key.has(id)){
                     var timestamp = foreign_map_key.get(id);
-                    map_key.set(id,timestamp);
+                    if(timestamp!="c"){
+                        map_key.set(id,timestamp);
+                    }
+                    else{
+                        map_key.set(id,"y");
+                    }
                     foreign_map_key.remove(id);
                 }
                 else{
@@ -247,6 +252,9 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
                     result=id;
                 }
             }
+            if(foreign_map_key.has(id)){
+                foreign_map_key.remove(id);
+            }
         }
         else{
             if(foreign_map_size>=url_mapSize){
@@ -257,7 +265,12 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
             if(!foreign_map_key.has(id)){
                 if(map_key.has(id)){
                     var timestamp = map_key.get(id);
-                    foreign_map_key.set(id,timestamp);
+                    if(timestamp!="c"){
+                        foreign_map_key.set(id,timestamp);
+                    }
+                    else{
+                        foreign_map_key.set(id,"y");
+                    }
                     map_key.remove(id);
                 }
                 else{
@@ -270,6 +283,9 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
                     result=id;
                 }
                 console.log("insert seed to foreign:"+id);
+            }
+            if(map_key.has(id)){
+                map_key.remove(id);
             }
 
         }
@@ -286,7 +302,12 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
             if(!map_key.has(id)){
                 if(foreign_map_key.has(id)){
                     var timestamp = foreign_map_key.get(id);
-                    map_key.set(id,timestamp);
+                    if(timestamp!="c"){
+                        map_key.set(id,timestamp);
+                    }
+                    else{
+                        map_key.set(id,"y");
+                    }
                     foreign_map_key.remove(id);
                 }
                 else{
@@ -300,7 +321,12 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
             if(!foreign_map_key.has(id)){
                 if(map_key.has(id)){
                     var timestamp = map_key.get(id);
-                    foreign_map_key.set(id,timestamp);
+                    if(timestamp!="c"){
+                        foreign_map_key.set(id,timestamp);
+                    }
+                    else{
+                        foreign_map_key.set(id,"y");
+                    }
                     map_key.remove(id);
                 }
                 else{
@@ -317,7 +343,7 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
 /*------delete seed--------*/
 /*
  * for seed bot and data bot
-     ?ids=231,1312...
+     ?ids=231~1312...
      a set of id
      */
 /*------delete seed--------*/
@@ -331,7 +357,7 @@ app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
 
     var seeds = req.query.ids;
     var result="";
-    var parts = seeds.split(",");
+    var parts = seeds.split("~");
     for(i=0;i<parts.length;i++){
         if(parts[i]==""){
             continue;
@@ -405,6 +431,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     var i,temp_index=-1;
     for(i=0;i<values.length;i++){
         /*not yet*/
+        /*
         if(values[i]=="y"&&temp_index==-1){
             if(country=="Taiwan"){
                 from_seed_idIndex=i;
@@ -414,6 +441,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
             temp_index++;
         }
+        */
         /*not yet*/
         if(type=="databot"){
             if(country=="Taiwan"){
