@@ -28,6 +28,7 @@ function crawlerFB(token,groupid,key,fin){
     let yoyo = myModule.yoyo;
     let id_serverip = myModule.id_serverip;
     let id_serverport = myModule.id_serverport;
+    /*
     graph_request++;
     request({
         uri: "https://graph.facebook.com/"+version+"/"+groupid+"/?access_token="+token+"&fields="+info,
@@ -124,6 +125,7 @@ function crawlerFB(token,groupid,key,fin){
             }
         }
     });
+    */
     graph_request++;
     request({
         uri: "https://graph.facebook.com/"+version+"/"+groupid+"/feed?access_token="+token+"&limit="+limit+"&fields="+fields,
@@ -175,10 +177,9 @@ function crawlerFB(token,groupid,key,fin){
                         console.log("Application request limit reached:"+graph_request);
                         process.exit(0);
                     }
-                    else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
-
+                    else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."||feeds['error']['message'].indexOf("unknown error")!=-1){
                         setTimeout(function(){
-                            console.log("Retry crawlerFB:unexpected");
+                            console.log("Retry crawlerFB:unexpected/unknown");
                             crawlerFB(token,groupid,key,fin);
                         },again_time*1000);
                         return;
@@ -193,7 +194,7 @@ function crawlerFB(token,groupid,key,fin){
                     else{
                         console.log("crawlerFB=>feeds['error']");
                         fs.appendFile(dir+"/"+country+"/"+groupid+"/err_log","--\n["+groupid+"] crawlerFB=>feeds['error']:"+body+"\n",function(){});
-                        fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
+                        fs.appendFile(dir+"/err_list",groupid+"=>error:"+body+"\n",function(){});
                         deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
                             if(st=="error"){
                                 fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:deleteid2Server",function(){});
@@ -444,9 +445,9 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                         console.log("Application request limit reached:"+graph_request);
                         process.exit(0);
                     }
-                    else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."){
+                    else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."||feeds['error']['message'].indexOf("unknown error")!=-1){
                         setTimeout(function(){
-                            console.log("4.Retry:unexpected");
+                            console.log("4.Retry:unexpected/unknown");
                             nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },again_time*1000);
                         return;
@@ -461,7 +462,7 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                     else{
                         console.log("nextPage=>feeds['error']");
                         fs.appendFile(dir+"/"+country+"/"+groupid+"/err_log","--\n["+groupid+"] crawlerFB=>nextPage=>feeds['error']:"+body+"\n",function(){});
-                        fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
+                        fs.appendFile(dir+"/err_list",groupid+"=>error:"+body+"\n",function(){});
                         deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
                             if(st=="error"){
                                 fs.appendFile(dir+"/err_log","--\n["+groupid+"] crawlerFB:error:deleteid2Server\n",function(){});

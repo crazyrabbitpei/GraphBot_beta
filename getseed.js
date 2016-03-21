@@ -54,6 +54,8 @@ console.log("init=>getSeed:err_log");
 }
 */
 if(!module.parent){
+    var service = JSON.parse(fs.readFileSync('./service/url_manager'));
+    var tw_address_filename = service['tw_address'];
     var jump_interval=8100;
     var require_num=50;
     var job = new CronJob({
@@ -70,7 +72,10 @@ if(!module.parent){
         start:false,
         timeZone:'Asia/Taipei'
     });
-    job.start();
+    ReadTWaddress(tw_address_filename,function(){
+        job.start();
+    });
+
 }
 //requireSeed(50);
 
@@ -98,6 +103,9 @@ function requireSeed(num,from_index){
                         console.log(stat);
                     }
                 });
+
+            }
+            else if(result=="empty"){
 
             }
             else{
@@ -128,7 +136,7 @@ function getSeed(groupid,token,fin){
     //console.log("socket_num:"+socket_num);
     //console.log("graph_reauest:"+graph_request);
     request({
-        uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields=location,id,name,is_community_page",
+        uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields=location,id,name,talking_about_count,likes,were_here_count,category,is_community_page",
         timeout: 10000
     },function(error, response, body){
         try{
@@ -167,18 +175,25 @@ function getSeed(groupid,token,fin){
             var dot_flag=0;
             var i,j,k;
             graph_request++;
+            if(len==0){
+                deleteSeed(groupid,function(stat){
+                });
+                fin("empty");
+                return;
+            }
+
             for(j=0;j<len;j++){
                 page_name = Object.keys(feeds)[j];
-                if(feeds[page_name]['is_community_page']==true||feeds[page_name]['is_community_page']=="true"){
-                    fs.appendFile("./"+country+"_is_community_page.record",feeds[page_name]['id']+"\n",function(){});
-                    deleteSeed(feeds[page_name]['id'],function(stat){
-                    });
-                    continue;
-                }
                 if(feeds[page_name]['data'].length!=0){
                     dot_flag++;
                     var ids="";
                     for(i=0;i<feeds[page_name]['data'].length;i++){
+                        if(feeds[page_name]['data'][i]['is_community_page']==true||feeds[page_name]['data'][i]['is_community_page']=="true"){
+                            fs.appendFile("./"+country+"_is_community_page.record",feeds[page_name]['data'][i]['id']+"\n",function(){});
+                            deleteSeed(feeds[page_name]['data'][i]['id'],function(stat){
+                            });
+                            continue;
+                        }
                         var loca="Other";
                         if(dot_flag==1&&i==0){
                             if(typeof feeds[page_name]['data'][i]['location'] !=="undefined"){
@@ -199,7 +214,40 @@ function getSeed(groupid,token,fin){
                                     }
                                 }
                             }
+                            searchSeed(country,feeds[page_name]['data'][i]['id'],function(checkid){
+                                if(checkid=="error"||checkid=="empty"){
+                                    console.log("searchSeed error!");
+                                }
+                                else{
+                                    var parts = body.split(":");
+                                    if(parts[1]==""||typeof parts[1]==="undefined"){
+                                        var small_loca1 = S(loca).left(3).s;
+                                        var small_loca2 = S(loca).left(2).s;
+                                        if(map_tw_address.get(loca)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
+                                            var record = "@"+
+                                                "\n@id:"+feeds[page_name]['data'][i]['id']+
+                                                    "\n@name:"+feeds[page_name]['data'][i]['name']+
+                                                        "\n@location:"+loca+
+                                                            "\n@category:"+feeds[page_name]['data'][i]['category']+
+                                                                "\n@likes:"+feeds[page_name]['data'][i]['likes']+
+                                                                    "\n@talking_about_count:"+feeds[page_name]['data'][i]['talking_about_count']+
+                                                                        "\n@were_here_count:"+feeds[page_name]['data'][i]['were_here_count']+"\n"
+                                                                        fs.appendFile("./"+country+"_groups.list",record,function(err){
+                                                                            if(err){
+                                                                                console.log(err);
+                                                                            }
+                                                                        });
+
+                                        }
+
+                                    }
+                                }
+                            });
+                            /*
+
+                            */
                             loca = loca.replace("~","");
+                            loca = loca.replace(":","");
                             loca = loca.replace(/[0-9]/g,"");
                             loca = loca.replace(/ /g,"");
                             ids += feeds[page_name]['data'][i]['id'];
@@ -224,7 +272,37 @@ function getSeed(groupid,token,fin){
                                     }
                                 }
                             }
+                            searchSeed(country,feeds[page_name]['data'][i]['id'],function(checkid){
+                                if(checkid=="error"||checkid=="empty"){
+                                    console.log("searchSeed error!");
+                                }
+                                else{
+                                    var parts = body.split(":");
+                                    if(parts[1]==""||typeof parts[1]==="undefined"){
+                                        var small_loca1 = S(loca).left(3).s;
+                                        var small_loca2 = S(loca).left(2).s;
+                                        if(map_tw_address.get(loca)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
+                                            var record = "@"+
+                                                "\n@id:"+feeds[page_name]['data'][i]['id']+
+                                                    "\n@name:"+feeds[page_name]['data'][i]['name']+
+                                                        "\n@location:"+loca+
+                                                            "\n@category:"+feeds[page_name]['data'][i]['category']+
+                                                                "\n@likes:"+feeds[page_name]['data'][i]['likes']+
+                                                                    "\n@talking_about_count:"+feeds[page_name]['data'][i]['talking_about_count']+
+                                                                        "\n@were_here_count:"+feeds[page_name]['data'][i]['were_here_count']+"\n"
+                                                                        fs.appendFile("./"+country+"_groups.list",record,function(err){
+                                                                            if(err){
+                                                                                console.log(err);
+                                                                            }
+                                                                        });
+
+                                        }
+
+                                    }
+                                }
+                            })
                             loca = loca.replace("~","");
+                            loca = loca.replace(":","");
                             loca = loca.replace(/[0-9]/g,"");
                             loca = loca.replace(/ /g,"");
                             ids += "~"+feeds[page_name]['data'][i]['id'];
@@ -369,7 +447,8 @@ function getLocation(list_name,groupid,token,fin){
                 if(feeds['error']['message']=="(#4) Application request limit reached"){
                     console.log("Application request limit reached:"+graph_request);
                 }
-                else if(feeds['error']['message'].indexOf("(#100)")!=-1){
+                else if(feeds['error']['message'].indexOf("(#100)")!=-1){//is User or is built with fb
+                    console.log(groupid);
                     fs.appendFile("./"+list_name+"_deleteID.record",groupid+"\n",function(){});
                     deleteSeed(groupid,function(stat){
                     });
@@ -384,12 +463,12 @@ function getLocation(list_name,groupid,token,fin){
                     //console.log("delete:"+d_seed+" =>"+n_seed);
                     deleteSeed(d_seed,function(stat){
                     });
-                    insertSeed4filter(n_seed,function(stat){
+                    insertSeed4filter(list_name,n_seed,function(stat){
                         if(stat!="old"){
                             console.log(stat+":"+n_seed);
                         }
                     });
-                    getLocation(n_seed,token,fin)
+                    getLocation(list_name,n_seed,token,fin)
                     //fin("continue");
                     return;
                 }
@@ -402,6 +481,19 @@ function getLocation(list_name,groupid,token,fin){
             var i,j,k;
             var ids="";
             graph_request++;
+            if(len==0){
+                fs.appendFile("./"+list_name+"_deleteID.record",groupid+"\n",function(){});
+                deleteSeed(groupid,function(stat){
+                });
+                fin("continue");
+                return;
+            }
+            /*
+            else{
+                fin(groupid);
+                return;
+            }
+            */
             for(j=0;j<len;j++){
                 page_name = Object.keys(feeds)[j];
                 var loca="Other";
@@ -439,7 +531,6 @@ function getLocation(list_name,groupid,token,fin){
 
                     }
                 }
-            
                 if(map_tw_address.get(loca)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
                     var record = "@"+
                         "\n@id:"+feeds[page_name]['id']+
@@ -477,6 +568,7 @@ function getLocation(list_name,groupid,token,fin){
 
                 }
                 loca = loca.replace("~","");
+                loca = loca.replace(":","");
                 loca = loca.replace(/[0-9]/g,"");
                 loca = loca.replace(/ /g,"");
                 if(ids==""){
@@ -577,6 +669,37 @@ function deleteSeed(ids,fin){
     });
 }
 
+function searchSeed(country,id,fin){
+    var temp_ids = querystring.stringify({ids:id});
+    request({
+        //method:'POST',
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/urllist/seedbot/search/'+country+'?'+temp_ids,
+        //uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?ids='+ids,
+        timeout: 10000
+    },function(error, response, body){
+        if(error){
+            console.log("error:"+body);
+            fs.appendFile("./"+country+"_err_log","--\n["+id+"] searchSeed:"+error,function(){});
+            console.log("searchSeed error:"+error);
+            fin("error");
+            return;
+        }
+        if(body=="illegal request"){//url request error
+            fs.appendFile("./"+country+"_err_log","--\n["+id+"] searchSeed:"+body,function(){});
+            console.log("searchSeed:"+body);
+            fin("error");
+            return;
+        }
+        else if(body=="must contains id"){
+            console.log(body);
+            fin("empty");
+            return;
+        }
+        else{
+            fin(body);
+        }
+    });
+}
 function ReadTWaddress(tw_address_filename,fin){
     var options = {
         //encoding: 'utf8',

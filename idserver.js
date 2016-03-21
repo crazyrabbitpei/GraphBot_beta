@@ -827,7 +827,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
     var country = req.params.country;
     var ids = req.query.ids;
     var i;
-    if(typeof country==="undefined"){
+    if(typeof country==="undefined"||country==""){
         country = "Taiwan";
     }
     var nc_count=0,c_count=0;

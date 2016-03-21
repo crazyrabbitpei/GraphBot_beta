@@ -38,6 +38,16 @@ function filter(ids,index,lname){
     url_manager.getLocation(lname,ids[index],appid+"|"+yoyo,function(id_loca){
         if(id_loca!="error"&&id_loca!="continue"){
             console.log("=>get seed:\n"+id_loca+"\n");
+            /*
+            index++;
+            if(index>=ids.length){
+                console.log("Finish:"+index);
+                return;
+            }
+            else{
+                filter(ids,index,lname);
+            }
+            */
             url_manager.insertSeed4filter(lname,id_loca,function(stat){
                 if(stat!="old"){
                     console.log(stat);
@@ -56,7 +66,14 @@ function filter(ids,index,lname){
         }
         else if(id_loca=="continue"){
             index++;
-            filter(ids,index,lname);
+            if(index>=ids.length){
+                console.log("Finish:"+index);
+                return;
+            }
+            else{
+                filter(ids,index,lname);
+            }
+
         }
     });
     
@@ -69,11 +86,12 @@ function Readlist(filename,fin){
     var cnt=0;
     var id_cnt=0;
     var array_cnt=0;
-    //var start=0;
+    var start=79984;
+    //var start=34215;
+    //var start=115341;//foreign_id_manage
+    //var start=14918;//id_manage
     
-    var start=115341;//foreign_id_manage
-    //var start=552;//id_manage
-    
+    //var end=401;
 
     var options = {
         //encoding: 'utf8',
@@ -89,8 +107,14 @@ function Readlist(filename,fin){
         var part = line.split(",");
         if(cnt==1){
             if(id_cnt>=start){
+            //if(id_cnt>=start&&id_cnt<=end){
                 ids_array.push(ids);
             }
+            /*
+            if(id_cnt>end){
+                lr.close();
+            }
+            */
             array_cnt++;
             cnt=0;
             ids="";
