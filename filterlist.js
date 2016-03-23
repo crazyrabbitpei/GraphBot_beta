@@ -24,7 +24,7 @@ var seed_require_Interval = service1['seed_require_Interval'];
 var service = JSON.parse(fs.readFileSync('./service/url_manager'));
 var tw_address_filename = service['tw_address'];
 var HashMap = require('hashmap');
-var list_name = "foreign_id_manage";
+var list_name = "id_manage";
 Readlist("/home/crazyrabbit/GraphBot_beta/service/"+list_name,function(ids){
     url_manager.ReadTWaddress(tw_address_filename,function(){
         var index=0;
@@ -89,7 +89,8 @@ function Readlist(filename,fin){
     var start=79984;
     //var start=34215;
     //var start=115341;//foreign_id_manage
-    //var start=14918;//id_manage
+    
+    var start=14900;//id_manage:14916=>16929
     
     //var end=401;
 

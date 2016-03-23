@@ -9,12 +9,15 @@ var he = require('he');
 var punycode = require('punycode');
 var dateFormat = require('dateformat');
 var storeinfo = require('./tool/format.js');
+var url_manager = require('./getseed');
 var myModule = require('./run');
 
 var count=0;
 var graph_request=0;
+var records_num=0;
 
 function crawlerFB(token,groupid,key,fin){
+    records_num=0;
     //var groupid = myModule.groupid;
     let version = myModule.version;
     let limit = myModule.limit;
@@ -179,14 +182,14 @@ function crawlerFB(token,groupid,key,fin){
                     }
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."||feeds['error']['message'].indexOf("unknown error")!=-1){
                         setTimeout(function(){
-                            console.log("Retry crawlerFB:unexpected/unknown");
+                            console.log("Retry crawlerFB:unexpected/unknown:"+feeds['error']['message']);
                             crawlerFB(token,groupid,key,fin);
                         },again_time*1000);
                         return;
                     }
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
                         setTimeout(function(){
-                            console.log("Retry crawlerFB:unknown");
+                            console.log("Retry crawlerFB:unknown:"+feeds['error']['message']);
                             crawlerFB(token,groupid,key,fin);
                         },again_time*1000);
                         return;
@@ -202,7 +205,22 @@ function crawlerFB(token,groupid,key,fin){
                                 return;
                             }
                         });
-                        fin("error:feeds['error']");
+                        if(feeds['error']['message'].indexOf("Unsupported")!=-1){
+                            fin("none");
+                        }
+                        else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
+                            var d_seed,n_seed;                                                                                                    d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;                                                   n_seed = S(feeds['error']['message']).between('page ID ','.').s;
+                            url_manager.deleteSeed(d_seed,function(stat){
+                            });
+                            url_manager.insertSeed4filter("-1",n_seed,function(stat){
+                                if(stat!="old"){                                                                                                          console.log(stat+":"+n_seed);
+                                }
+                            });
+                            fin("none");
+                        }
+                        else{
+                            fin("error:feeds['error']");
+                        }
                         return;
                     }
                 }
@@ -222,7 +240,7 @@ function crawlerFB(token,groupid,key,fin){
                 }
 
                 console.log("--["+groupid+"] start\n"+feeds['data'].length);
-
+                records_num +=feeds['data'].length;
                 if(feeds['data'].length!=0){
                     var now = new Date();
                     var date = dateFormat(now, "yyyymmdd");
@@ -266,7 +284,8 @@ function crawlerFB(token,groupid,key,fin){
                                         if(temp_result[2]!=""){
                                             fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[2],function(){});
                                         }
-                                        fin(result);
+                                        //fin(result);
+                                        fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
                                         return;
                                     }
                                     else{
@@ -286,7 +305,8 @@ function crawlerFB(token,groupid,key,fin){
                                         }
                                         //}
                                         else{
-                                            fin("endTONext@Gais:"+groupid);
+                                            fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
+                                            //fin('endTONext@Gais:'+groupid);
                                             return;
                                         }
 
@@ -307,7 +327,8 @@ function crawlerFB(token,groupid,key,fin){
                             return;
                         }
                     });
-                    fin('endTONext@Gais:'+groupid);
+                    //fin('endTONext@Gais:'+groupid);
+                    fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
                     return;
                 }
             }
@@ -445,16 +466,17 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                         console.log("Application request limit reached:"+graph_request);
                         process.exit(0);
                     }
+
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."||feeds['error']['message'].indexOf("unknown error")!=-1){
                         setTimeout(function(){
-                            console.log("4.Retry:unexpected/unknown");
+                            console.log("4.Retry:unexpected/unknown:"+feeds['error']['message']);
                             nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },again_time*1000);
                         return;
                     }
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
                         setTimeout(function(){
-                            console.log("4.Another Retry");
+                            console.log("4.Another Retry:"+feeds['error']['message']);
                             nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },again_time*1000);
                         return;
@@ -470,7 +492,22 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                                 return;
                             }
                         });
-                        fin("error:feeds['error']");
+                        if(feeds['error']['message'].indexOf("Unsupported")!=-1){
+                            fin("none");
+                        }
+                        else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
+                            var d_seed,n_seed;                                                                                                    d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;                                                   n_seed = S(feeds['error']['message']).between('page ID ','.').s;
+                            url_manager.deleteSeed(d_seed,function(stat){
+                            });
+                            url_manager.insertSeed4filter("-1",n_seed,function(stat){
+                                if(stat!="old"){                                                                                                          console.log(stat+":"+n_seed);
+                                }
+                            });
+                            fin("none");
+                        }
+                        else{
+                            fin("error:feeds['error']");
+                        }
                         return;
                     }
                 }
@@ -489,6 +526,8 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                     return;
                 }
                 console.log("--["+groupid+"] next\n"+feeds['data'].length);
+                records_num +=feeds['data'].length;
+
                 if(feeds['data'].length!=0){
                     var now = new Date();
                     var date = dateFormat(now, "yyyymmdd");
@@ -498,7 +537,8 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                             if(temp_result[2]!=""){
                                 fs.appendFile(dir+"/"+country+"/"+groupid+"/fb_"+date,temp_result[2],function(){});
                             }
-                            fin(result);
+                            fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
+                            //fin(result);
                             return;
                         }
                         else{
@@ -510,14 +550,16 @@ function nextPage(key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
                                 nextPage(key,feeds['paging'].next,depth_link-1,token,groupid,end_flag,now_flag,fin);
                             }
                             else{
-                                fin("endTONext@Gais:"+groupid);
+                                //fin("endTONext@Gais:"+groupid);
+                                fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
                                 return;
                             }
                         }
                     });
                 }
                 else{
-                    fin('endTONext@Gais:'+groupid);
+                    //fin('endTONext@Gais:'+groupid);
+                    fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
                     return;
                 }
             }

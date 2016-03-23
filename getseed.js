@@ -56,7 +56,7 @@ console.log("init=>getSeed:err_log");
 if(!module.parent){
     var service = JSON.parse(fs.readFileSync('./service/url_manager'));
     var tw_address_filename = service['tw_address'];
-    var jump_interval=8100;
+    var jump_interval=-1;
     var require_num=50;
     var job = new CronJob({
         cronTime:seed_require_Interval,
@@ -176,8 +176,10 @@ function getSeed(groupid,token,fin){
             var i,j,k;
             graph_request++;
             if(len==0){
+                /*
                 deleteSeed(groupid,function(stat){
                 });
+                */
                 fin("empty");
                 return;
             }
@@ -219,7 +221,7 @@ function getSeed(groupid,token,fin){
                                     console.log("searchSeed error!");
                                 }
                                 else{
-                                    var parts = body.split(":");
+                                    var parts = checkid.split(":");
                                     if(parts[1]==""||typeof parts[1]==="undefined"){
                                         var small_loca1 = S(loca).left(3).s;
                                         var small_loca2 = S(loca).left(2).s;
@@ -277,7 +279,7 @@ function getSeed(groupid,token,fin){
                                     console.log("searchSeed error!");
                                 }
                                 else{
-                                    var parts = body.split(":");
+                                    var parts = checkid.split(":");
                                     if(parts[1]==""||typeof parts[1]==="undefined"){
                                         var small_loca1 = S(loca).left(3).s;
                                         var small_loca2 = S(loca).left(2).s;
@@ -595,13 +597,17 @@ function insertSeed4filter(list_name,ids,fin){
     },function(error, response, body){
         if(error){
             console.log("error:"+body);
-            fs.appendFile("./"+list_name+"_err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+error,function(){});
+            if(list_name!="-1"){
+                fs.appendFile("./"+list_name+"_err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+error,function(){});
+            }
             console.log("insertSeed:"+error);
             fin("error");
             return;
         }
         if(body=="illegal request"){//url request error
-            fs.appendFile("./"+list_name+"_err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+body,function(){});
+            if(list_name!="-1"){
+                fs.appendFile("./"+list_name+"_err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+body,function(){});
+            }
             console.log("insertSeed:"+body);
             fin("error");
             return;
@@ -657,7 +663,7 @@ function deleteSeed(ids,fin){
         }
         else if(body==""){
             body=0;
-            console.log("delete seed fail");
+            //console.log("delete seed fail");
             deleteSeed(ids,function(stat){
                 console.log(stat);
             });
@@ -774,5 +780,6 @@ function ReadTWaddress(tw_address_filename,fin){
 
 }
 exports.insertSeed4filter=insertSeed4filter;
+exports.deleteSeed=deleteSeed;
 exports.getLocation=getLocation;
 exports.ReadTWaddress=ReadTWaddress;

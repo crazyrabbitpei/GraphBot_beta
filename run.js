@@ -92,10 +92,11 @@ function setpromise(){
             let date = dateFormat(now, "yyyymmdd");
             let parts = stat.split("endTONext@Gais:");
             let crawled_id = parts[1];
+            let records_num = parts[2];
             let end_d  = new Date();
             let date_end = dateFormat(end_d, "yyyymmdd_HHMM");
             if(crawled_id!="crawled"){
-                fs.appendFile('./log/'+date+'.oklist',"start:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
+                fs.appendFile('./log/'+date+'.oklist',"total nums:"+records_num+"\nstart:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
                 });
             }
             if(success_url<grab_limit){
@@ -106,7 +107,7 @@ function setpromise(){
             }
         }
         else if(stat=='none'){
-            console.log(crawled_id+' all be crawled ');
+            console.log('nothing to be crawled.');
             setpromise();          
         }
         else if(stat.indexOf('error')!=-1){
