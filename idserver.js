@@ -591,6 +591,10 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
             console.log("from local index:"+from_data_idIndex);
             end_index = from_data_idIndex+num;
+            if(end_index>=total_num){
+                end_index = total_num;
+
+            }
             console.log("to local index:"+end_index);
         }
         else{
@@ -600,6 +604,9 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
             console.log("from foreign index:"+foreign_from_data_idIndex);
             end_index = foreign_from_data_idIndex+num;
+            if(end_index>=total_num){
+                end_index = total_num;
+            }
             console.log("to foreign index:"+end_index);
 
         }

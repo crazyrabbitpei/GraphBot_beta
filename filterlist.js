@@ -90,7 +90,7 @@ function Readlist(filename,fin){
     //var start=34215;
     //var start=115341;//foreign_id_manage
     
-    var start=14900;//id_manage:14916=>16929
+    var start=17218;//id_manage:14916=>16989=>17218
     
     //var end=401;
 

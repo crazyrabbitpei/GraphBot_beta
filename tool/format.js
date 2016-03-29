@@ -60,7 +60,7 @@ function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
         result += "@url:"+url+"\n";
         result += "@time:"+time+"\n";
         result += "@body:"+body+"\n";
-        result += "@description:"+description;
+        result += "@description:"+description+"\n";
 
         //all feeds are came from api request, not from the post
         /*

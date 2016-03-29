@@ -34,6 +34,7 @@ exports.service1 = service1;
 var seed_id;
 var again_flag=0;
 var old_check=0;
+var total_old_check=0;
 /*
    for(seed_id=0;seed_id<seeds.length;seed_id++){
    console.log("seed:"+seeds[seed_id]['id']);
@@ -56,13 +57,21 @@ console.log("init=>getSeed:err_log");
 if(!module.parent){
     var service = JSON.parse(fs.readFileSync('./service/url_manager'));
     var tw_address_filename = service['tw_address'];
-    var jump_interval=-1;
+    var jump_interval=17120;
     var require_num=50;
+    var count=0;
     var job = new CronJob({
         cronTime:seed_require_Interval,
         onTick:function(){
             requireSeed(require_num,jump_interval);
             jump_interval+=require_num;
+            count++;
+            /*
+            if(count>3){
+                job.stop();
+                console.log("--STOP--");
+            }
+            */
             /*
             if(jump_interval>=8500){
                 jump_interval = 0;
@@ -73,6 +82,7 @@ if(!module.parent){
         timeZone:'Asia/Taipei'
     });
     ReadTWaddress(tw_address_filename,function(){
+        //requireSeed(require_num,jump_interval);
         job.start();
     });
 
@@ -97,10 +107,10 @@ function requireSeed(num,from_index){
         }
         getSeed(body,appid+"|"+yoyo,function(result){
             if(result!="error"){
-                console.log("=>get seed:\n"+result+"\n");
+                //console.log("=>get seed:\n"+result+"\n");
                 insertSeed(result,function(stat){
                     if(stat!="old"){
-                        console.log(stat);
+                        console.log("--\n"+stat+"\n--");
                     }
                 });
 
@@ -115,7 +125,7 @@ function requireSeed(num,from_index){
                     job.start();
                 }
                 else{
-                    jump_interval=0;
+                    //jump_interval=0;
                     job.start();
                     /*
                     deleteSeed(body,function(stat){
@@ -184,20 +194,21 @@ function getSeed(groupid,token,fin){
                 return;
             }
 
+            var ids="";
             for(j=0;j<len;j++){
                 page_name = Object.keys(feeds)[j];
-                if(feeds[page_name]['data'].length!=0){
+                //if(feeds[page_name]['data'].length!=0){
                     dot_flag++;
-                    var ids="";
                     for(i=0;i<feeds[page_name]['data'].length;i++){
-                        if(feeds[page_name]['data'][i]['is_community_page']==true||feeds[page_name]['data'][i]['is_community_page']=="true"){
+                        //console.log("["+i+"]"+feeds[page_name]['data'][i]['name']+" "+feeds[page_name]['data'][i]['id']);
+                        if(feeds[page_name]['data'][i]['is_community_page']===true||feeds[page_name]['data'][i]['is_community_page']=="true"){
                             fs.appendFile("./"+country+"_is_community_page.record",feeds[page_name]['data'][i]['id']+"\n",function(){});
                             deleteSeed(feeds[page_name]['data'][i]['id'],function(stat){
                             });
                             continue;
                         }
                         var loca="Other";
-                        if(dot_flag==1&&i==0){
+                        if(ids==""){
                             if(typeof feeds[page_name]['data'][i]['location'] !=="undefined"){
                                 if(typeof feeds[page_name]['data'][i]['location']['country']!== "undefined"){
                                     loca = feeds[page_name]['data'][i]['location']['country'];
@@ -216,38 +227,8 @@ function getSeed(groupid,token,fin){
                                     }
                                 }
                             }
-                            searchSeed(country,feeds[page_name]['data'][i]['id'],function(checkid){
-                                if(checkid=="error"||checkid=="empty"){
-                                    console.log("searchSeed error!");
-                                }
-                                else{
-                                    var parts = checkid.split(":");
-                                    if(parts[1]==""||typeof parts[1]==="undefined"){
-                                        var small_loca1 = S(loca).left(3).s;
-                                        var small_loca2 = S(loca).left(2).s;
-                                        if(map_tw_address.get(loca)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
-                                            var record = "@"+
-                                                "\n@id:"+feeds[page_name]['data'][i]['id']+
-                                                    "\n@name:"+feeds[page_name]['data'][i]['name']+
-                                                        "\n@location:"+loca+
-                                                            "\n@category:"+feeds[page_name]['data'][i]['category']+
-                                                                "\n@likes:"+feeds[page_name]['data'][i]['likes']+
-                                                                    "\n@talking_about_count:"+feeds[page_name]['data'][i]['talking_about_count']+
-                                                                        "\n@were_here_count:"+feeds[page_name]['data'][i]['were_here_count']+"\n"
-                                                                        fs.appendFile("./"+country+"_groups.list",record,function(err){
-                                                                            if(err){
-                                                                                console.log(err);
-                                                                            }
-                                                                        });
-
-                                        }
-
-                                    }
-                                }
-                            });
-                            /*
-
-                            */
+                            searchSeed(country,feeds[page_name]['data'][i]['id'],feeds[page_name]['data'][i]['name'],loca,feeds[page_name]['data'][i]['category'],feeds[page_name]['data'][i]['likes'],feeds[page_name]['data'][i]['talking_about_count'],feeds[page_name]['data'][i]['were_here_count'],function(checkid){
+                            });      
                             loca = loca.replace("~","");
                             loca = loca.replace(":","");
                             loca = loca.replace(/[0-9]/g,"");
@@ -274,35 +255,8 @@ function getSeed(groupid,token,fin){
                                     }
                                 }
                             }
-                            searchSeed(country,feeds[page_name]['data'][i]['id'],function(checkid){
-                                if(checkid=="error"||checkid=="empty"){
-                                    console.log("searchSeed error!");
-                                }
-                                else{
-                                    var parts = checkid.split(":");
-                                    if(parts[1]==""||typeof parts[1]==="undefined"){
-                                        var small_loca1 = S(loca).left(3).s;
-                                        var small_loca2 = S(loca).left(2).s;
-                                        if(map_tw_address.get(loca)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
-                                            var record = "@"+
-                                                "\n@id:"+feeds[page_name]['data'][i]['id']+
-                                                    "\n@name:"+feeds[page_name]['data'][i]['name']+
-                                                        "\n@location:"+loca+
-                                                            "\n@category:"+feeds[page_name]['data'][i]['category']+
-                                                                "\n@likes:"+feeds[page_name]['data'][i]['likes']+
-                                                                    "\n@talking_about_count:"+feeds[page_name]['data'][i]['talking_about_count']+
-                                                                        "\n@were_here_count:"+feeds[page_name]['data'][i]['were_here_count']+"\n"
-                                                                        fs.appendFile("./"+country+"_groups.list",record,function(err){
-                                                                            if(err){
-                                                                                console.log(err);
-                                                                            }
-                                                                        });
-
-                                        }
-
-                                    }
-                                }
-                            })
+                            searchSeed(country,feeds[page_name]['data'][i]['id'],feeds[page_name]['data'][i]['name'],loca,feeds[page_name]['data'][i]['category'],feeds[page_name]['data'][i]['likes'],feeds[page_name]['data'][i]['talking_about_count'],feeds[page_name]['data'][i]['were_here_count'],function(checkid){
+                            });      
                             loca = loca.replace("~","");
                             loca = loca.replace(":","");
                             loca = loca.replace(/[0-9]/g,"");
@@ -312,7 +266,7 @@ function getSeed(groupid,token,fin){
                         }
                     }
 
-                }
+                //}
 
             }
             fin(ids);
@@ -395,22 +349,29 @@ function insertSeed(ids,fin){
         }
         else if(body==""){
             body=0;
-            job.stop();
+            //job.stop();
             console.log("old:"+old_check);
-            if(old_check>1000){
+            old_check++;
+            total_old_check++;
+            if(total_old_check>3000){
+                job.stop();
                 process.exit(0);
             }
-            else if(country=="Taiwan"&&old_check>200){
-                old_check++;
+            else if(country=="Taiwan"&&old_check>500){
+                //old_check++;
+                old_check=0;
                 country = "Foreign";
                 console.log("--change to ["+country+"]--");
+                job.stop();
                 job.start();
 
             }
-            else{
-                old_check++;
+            else if(country=="Foreign"&&old_check>100){
+                //old_check++;
+                old_check=0;
                 country = "Taiwan";
                 console.log("--change to ["+country+"]--");
+                job.stop();
                 job.start();
             }
             fin("old");
@@ -519,8 +480,10 @@ function getLocation(list_name,groupid,token,fin){
                     }
 
                 }
-                var small_loca1 = S(loca).left(3).s;
-                var small_loca2 = S(loca).left(2).s;
+                var loca_temp = loca.replace(/[0-9]/g,"");
+                loca_temp = loca_temp.replace(/ /g,"");
+                var small_loca1 = S(loca_temp).left(3).s;
+                var small_loca2 = S(loca_temp).left(2).s;
                 if(typeof feeds[page_name]['name']!=="undefined"){
                     var ischt = feeds[page_name]['name'].match(/[\u4e00-\u9fa5]/ig);//this will include chs
                     //console.log(feeds[page_name]['name']);
@@ -648,7 +611,7 @@ function deleteSeed(ids,fin){
                     job.start();
                     again_flag=0;
                     socket_num=0;
-                },60000);
+                },60*1000);
             }
             fin("error");
             return;
@@ -675,7 +638,8 @@ function deleteSeed(ids,fin){
     });
 }
 
-function searchSeed(country,id,fin){
+function searchSeed(country,id,name,loca,category,likes,talking_about_count,were_here_count,fin){
+
     var temp_ids = querystring.stringify({ids:id});
     request({
         //method:'POST',
@@ -702,6 +666,30 @@ function searchSeed(country,id,fin){
             return;
         }
         else{
+
+            var parts = body.split(":");
+            if(parts[1]==""||typeof parts[1]==="undefined"||parts[1]=="undefined"){
+                var loca_temp = loca.replace(/[0-9]/g,"");
+                loca_temp = loca_temp.replace(/ /g,"");
+                var small_loca1 = S(loca_temp).left(3).s;
+                var small_loca2 = S(loca_temp).left(2).s;
+                if(map_tw_address.get(loca_temp)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
+                    var record = "@"+
+                        "\n@id:"+id+
+                            "\n@name:"+name+
+                                "\n@location:"+loca+
+                                    "\n@category:"+category+
+                                        "\n@likes:"+likes+
+                                            "\n@talking_about_count:"+talking_about_count+
+                                                "\n@were_here_count:"+were_here_count+"\n"
+                                                fs.appendFile("./"+country+"_groups.list",record,function(err){
+                                                    if(err){
+                                                        console.log(err);
+                                                    }
+                                                });
+
+                }
+            }
             fin(body);
         }
     });
