@@ -57,14 +57,14 @@ console.log("init=>getSeed:err_log");
 if(!module.parent){
     var service = JSON.parse(fs.readFileSync('./service/url_manager'));
     var tw_address_filename = service['tw_address'];
-    var jump_interval=17120;
+    var jump_interval=-1;
     var require_num=50;
     var count=0;
     var job = new CronJob({
         cronTime:seed_require_Interval,
         onTick:function(){
             requireSeed(require_num,jump_interval);
-            jump_interval+=require_num;
+            //jump_interval+=require_num;
             count++;
             /*
             if(count>3){
@@ -118,7 +118,11 @@ function requireSeed(num,from_index){
             else if(result=="empty"){
 
             }
+            else if(result=="r_error"){
+                job.stop();
+            }
             else{
+
                 console.log("requireSeed=>getSeed:"+body);
                 if(require_num!=1){
                     require_num=1;
@@ -158,46 +162,58 @@ function getSeed(groupid,token,fin){
             return;
         }
         finally{
-            if(feeds['error']){
-                console.log("getSeed error:"+feeds['error']['message']);
-                if(feeds['error']['message']=="(#4) Application request limit reached"){
-                    console.log("Application request limit reached:"+graph_request);
-                    if(!module.parent){
-                        job.stop();
-                        process.exit(0);
-                    }
-
-                }
-                else if(feeds['error']['message'].indexOf("(#100)")!=-1){
-                    if(!module.parent){
-                        job.stop();
-                    }
-                }
-                fin("error");
+            if(error){
+                console.log("getSeed:"+error);
+                fin("r_error");
                 return;
+                
             }
-            if(!module.parent){
-                updateidServer(groupid,"c");
-            }
+            else{
+                if(feeds['error']){
+                    console.log("getSeed error:"+feeds['error']['message']);
+                    if(feeds['error']['message']=="(#4) Application request limit reached"){
+                        console.log("Application request limit reached:"+graph_request);
+                        if(!module.parent){
+                            job.stop();
+                            //process.exit(0);
+                        }
+                    }
+                    else if(feeds['error']['message'].indexOf("(#100)")!=-1){
+                        if(!module.parent){
+                            fs.appendFile("./"+country+"_deleteID.record",groupid+"\n",function(){});
+                            job.stop();
+                        }
+                    }
+                    else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
+                        fs.appendFile("./"+country+"_migratedID.record",feeds['error']['message']+"\n",function(){});
+                        job.stop();
+                    }
+                    process.exit(0);
+                    fin("error");
+                    return;
+                }
+                if(!module.parent){
+                    updateidServer(groupid,"c");
+                }
 
-            var len = Object.keys(feeds).length;
-            var page_name="";
-            var dot_flag=0;
-            var i,j,k;
-            graph_request++;
-            if(len==0){
-                /*
-                deleteSeed(groupid,function(stat){
-                });
-                */
-                fin("empty");
-                return;
-            }
+                var len = Object.keys(feeds).length;
+                var page_name="";
+                var dot_flag=0;
+                var i,j,k;
+                graph_request++;
+                if(len==0){
+                    /*
+                       deleteSeed(groupid,function(stat){
+                       });
+                       */
+                    fin("empty");
+                    return;
+                }
 
-            var ids="";
-            for(j=0;j<len;j++){
-                page_name = Object.keys(feeds)[j];
-                //if(feeds[page_name]['data'].length!=0){
+                var ids="";
+                for(j=0;j<len;j++){
+                    page_name = Object.keys(feeds)[j];
+                    //if(feeds[page_name]['data'].length!=0){
                     dot_flag++;
                     for(i=0;i<feeds[page_name]['data'].length;i++){
                         //console.log("["+i+"]"+feeds[page_name]['data'][i]['name']+" "+feeds[page_name]['data'][i]['id']);
@@ -266,10 +282,13 @@ function getSeed(groupid,token,fin){
                         }
                     }
 
-                //}
+                    //}
+
+                }
+                fin(ids);
 
             }
-            fin(ids);
+
         }
     });
 }
@@ -326,17 +345,22 @@ function insertSeed(ids,fin){
         if(error){
             console.log("error:"+body);
             job.stop();
-            if(again_flag==0){
+            //if(again_flag==0){
                 fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] insertSeed:"+error,function(){});
                 console.log("insertSeed:"+error);
-                again_flag=1;
-                setTimeout(function(){
-                    job.start();
-                    again_flag=0;
-                    socket_num=0;
-                },60*1000);
-            }
-            fin("error");
+                //again_flag=1;
+                if(error.code.indexOf('TIMEDOUT')!=-1){
+                    setTimeout(function(){
+                        job.start();
+                        again_flag=0;
+                        socket_num=0;
+                        insertSeed(ids,fin);
+                    },30*1000);
+                }
+                else{
+                    fin("error");
+                }
+            //}
             return;
         }
         if(body=="illegal request"){//url request error
@@ -601,29 +625,41 @@ function deleteSeed(ids,fin){
         timeout: 10000
     },function(error, response, body){
         if(error){
-            console.log("error:"+body);
-            job.stop();
-            if(again_flag==0){
-                fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] deleteSeed:"+error,function(){});
-                console.log("deleteSeed:"+error);
-                again_flag=1;
-                setTimeout(function(){
-                    job.start();
-                    again_flag=0;
-                    socket_num=0;
-                },60*1000);
+            console.log("["+ids+"]error:"+body);
+            if(!module.parent){
+                job.stop();
             }
-            fin("error");
+            //if(again_flag==0){
+                fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] deleteSeed:"+error,function(){});
+                console.log("["+ids+"]deleteSeed:"+error);
+                //again_flag=1;
+                if(error.code.indexOf('TIMEDOUT')!=-1){
+                    setTimeout(function(){
+                        if(!module.parent){
+                            job.stop();
+                        }
+                        again_flag=0;
+                        socket_num=0;
+                        deleteSeed(ids,fin);
+                    },30*1000);
+                }
+                else{
+                    fin("error");
+                }
+            //}
             return;
         }
         if(body=="illegal request"){//url request error
             fs.appendFile("./err_log","--\n["+ids+"] ["+socket_num+"] deleteSeed:"+body,function(){});
             console.log("deleteSeed:"+body);
-            job.stop();
+            if(!module.parent){
+                job.stop();
+            }
             process.exit(0);
             fin("error");
             return;
         }
+        /*
         else if(body==""){
             body=0;
             //console.log("delete seed fail");
@@ -632,6 +668,7 @@ function deleteSeed(ids,fin){
             });
             return;
         }
+        */
         else{
             fin("delete seed:"+body);
         }

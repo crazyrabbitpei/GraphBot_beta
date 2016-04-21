@@ -834,6 +834,12 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
     var country = req.params.country;
     var ids = req.query.ids;
     var i;
+
+    if(!map_botkey.has(key)){
+        res.send("illegal request");
+        return;
+    }
+
     if(typeof country==="undefined"||country==""){
         country = "Taiwan";
     }
@@ -886,8 +892,13 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
  */
 /*-------listing and searching url list-----------*/
 app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
+    var key = req.params.key;
     var action = req.params.action;
     var i,j,k;
+    if(!map_botkey.has(key)){
+        res.send("illegal request");
+        return;
+    }
     if(action=="list"){
         var result="";
         map_tw_address.forEach(function(value, key) {
@@ -917,8 +928,29 @@ app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
 /*(not yet)for new a bot action, bot manager*/
 app.get('/fbjob/:key/oceangaisbot/v1.0/newbot/',function(req,res){
     var key = req.params.key;
+    if(!map_botkey.has(key)){
+        res.send("illegal request");
+        return;
+    }
 });
+/*force store id_manage*/
+app.get('/fbjob/:key/update/:config(list|tw_address)/v1.0/',function(req,res){
+    var key = req.params.key;
+    var config = req.params.config;
+    if(!map_botkey.has(key)){
+        res.send("illegal request");
+        return;
+    }
+    if(config=="list"){
+       clearID();
+       res.send("id_manage has updated");
 
+    }
+    else if(config=="tw_address"){
+        ReadTWaddress();
+        res.send("tw_address has updated");
+    }
+});
 /*(not yet)temp tool, controling crawled type, ex:page,user,group*/
 app.get('/fbjob/:key/grab_list/:action(search|insert|delete)/v1.0/',function(req,res){
     //group,page,user
@@ -1190,6 +1222,7 @@ function ReadID(){
         // 'err' contains error object
         console.log("error:"+err);
         job.stop();
+        process.exit(0);
     });
     lr.on('line', function (line) {
         var part = line.split(",");
@@ -1216,6 +1249,7 @@ function ReadForeignID(){
         // 'err' contains error object
         console.log("error:"+err);
         job.stop();
+        process.exit(0);
     });
     lr.on('line', function (line) {
         var part = line.split(",");
@@ -1234,6 +1268,7 @@ function ReadForeignID(){
 function ReadBotID(){
     var key="",name="";
     var i;
+    map_botkey.clear();
     for(i=0;i<service["data"].length;i++){
         key = service["data"][i]["key"];
         name = service["data"][i]["name"];
@@ -1266,8 +1301,6 @@ function clearID(){
         console.log("write to:"+filename);
     });
     map_size = map_key.count();
-
-
 
     foreign_map_key.forEach(function(value, key) {
         if(value!=-1&&typeof value !=="undefined"&&typeof key!=="undefined"&&key!="undefined"&&value!="undefined") {

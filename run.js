@@ -33,10 +33,27 @@ try {
     var country_location = service1['country'];
     var again_time = service1['again_time'];
     var grab_limit = service1['grab_limit'];
+    var limit_retry = service1['limit_retry'];
+    var retryFields = service1['retryFields'];
 
     var service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
     var appid = service2['id'];
     var yoyo = service2['yoyo'];
+    if(process.argv[2]=="1"){
+        appid = service2['id1'];
+        yoyo = service2['yoyo1'];
+    }
+    else if(process.argv[2]=="2"){
+        appid = service2['id2'];
+        yoyo = service2['yoyo2'];
+    }
+    else{
+        console.log("Please choose an API key[1/2]")
+        process.exit();
+        return;
+    }
+
+
     var tomail = service2['tomail'];
     var frommail = service2['frommail'];
     var mailNoticeTime = service2['mailNoticeTime'];
@@ -71,14 +88,24 @@ catch (err) {
     process.exit(9);
 }
 finally{
-    setpromise();
+    get_accessToken(function(token){
+        if(token=="error"){
+            console.log("init=>get_accessToken:can't get token");
+            //fin(token);
+            return;
+        }
+        else{
+            setpromise(token);
+        }
+    });
+
 }
 
-function setpromise(){
+function setpromise(token){
     var start_d  = new Date();
     var date_start = dateFormat(start_d, "yyyymmdd_HHMM");
     let promise = new Promise(function(resolve,reject){
-        start(function(result){
+        start(token,function(result){
             resolve(result);
         });
     });
@@ -100,21 +127,26 @@ function setpromise(){
                 });
             }
             if(success_url<grab_limit){
-                setpromise();          
+                setpromise(token);          
             }
             else{
                 console.log("Finish:"+success_url);
+                success_url=0;
+                setpromise(token);          
+                //process.exit();
             }
         }
         else if(stat=='none'){
             console.log('nothing to be crawled.');
-            setpromise();          
+            setpromise(token);          
         }
         else if(stat.indexOf('error')!=-1){
             console.log("error occur:"+stat);
+            process.exit();
         }
         else{
             console.log("else:"+stat);
+            process.exit();
         }
     }).catch(function(error){
         let now  = new Date();
@@ -126,9 +158,8 @@ function setpromise(){
     
 }
 
-function start(fin){
+function start(token,fin){
     var request_num=1;
-    get_accessToken(function(token){
         console.log("token:"+token);
         if(token=="error"){
             console.log("init=>get_accessToken:can't get token");
@@ -178,8 +209,6 @@ function start(fin){
             });
 
         }
-    });
-
 }
 
 function requireSeed(num,from_index,fin){
@@ -205,15 +234,37 @@ function get_accessToken(fin){
         timeout: 10000
     //uri: "https://graph.facebook.com/"+version+"/"+groupid+"/feed?access_token="+accesst+"&limit="+limit,
     },function(error, response, body){
-        var token = JSON.parse(body);
-        if(token['error']){
-            fs.appendFile(dir+"/err_log","get_accessToken:"+body+"\n",function(){});
-            fin("error");
-            return;
+        if(error){
+            fs.appendFile(dir+"/err_log","get_accessToken:"+error+"\n",function(){});
+            get_accessToken(fin);
         }
         else{
-            fin(token['access_token']);
+            try{
+                var token = JSON.parse(body);
+                if(typeof token ==="undefined"){
+                    fin("error");
+                    return;
+                }
+                else{
+                    if(token['error']){
+                        fs.appendFile(dir+"/err_log","get_accessToken:"+body+"\n",function(){});
+                        fin("error");
+                        return;
+                    }
+                    else{
+                        fin(token['access_token']);
+                    }
+
+                }
+            }
+            catch(e){
+                fs.appendFile(dir+"/err_log","get_accessToken:"+e+"\n",function(){});
+                console.log('get_accessToken error:'+e);
+                fin("error");
+                return;
+            }
         }
+
     });
 
 }
@@ -221,7 +272,7 @@ function get_accessToken(fin){
 function setBot(botkey,groupid,token,fin){
     console.log("--\ngo groupid:"+groupid);
     try{
-        fbBot.crawlerFB(token,groupid,botkey,function(result){
+        fbBot.crawlerFB(limit,retryFields,token,groupid,botkey,function(result){
             current_url++;
             console.log("current num:"+current_url);
             if(result=="error"){

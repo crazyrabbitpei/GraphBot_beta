@@ -5,7 +5,7 @@ var dateFormat = require('dateformat');
 var request = require('request');
 var fs = require('graceful-fs');
 
-function storeinfo(key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
+function storeinfo(groupid,key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
     var now = new Date();
     var date = dateFormat(now, "yyyymmdd_HHMM");
     var title,source,url,time,body,message_tag="",description="";
