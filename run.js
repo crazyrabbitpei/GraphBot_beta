@@ -137,6 +137,7 @@ function setpromise(token){
             }
         }
         else if(stat=='none'){
+            success_url++;
             console.log('nothing to be crawled.');
             setpromise(token);          
         }

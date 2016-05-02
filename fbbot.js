@@ -167,9 +167,10 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                 },again_time*1000);//1 minutes
             }
             else{
-                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB:"+body+"\n",function(){});
-                fin("none");
-                return;
+                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB:"+body+"\n",function(){
+                    fin("none");
+                    return;
+                });
             }
         }
         else{
@@ -189,9 +190,14 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
             }
             catch(e){
                 console.log("crawlerFB=>error:"+e);
-                //fs.appendFile(dir+"/"+country+"/"+groupid+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB:"+body+"\n",function(){});
-                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB:"+body+"\n",function(){});
-                fin("error");
+                fs.appendFile("./log/crawlerFB.err","--\n["+groupid+"] error:"+e+"\ncrawlerFB:"+body+"\n",function(){
+                });
+                retryNum++;
+                setTimeout(function(){
+                    console.log("["+retryNum+"]["+groupid+"]Retry crawlerFB:body===err html");
+                    console.log("1.");
+                    crawlerFB(limit,retryFields,token,groupid,key,fin);
+                },again_time*1000);
                 return;
             }
             finally{
@@ -214,6 +220,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         setTimeout(function(){
                             console.log("["+groupid+"]Retry crawlerFB:unexpected/unknown:"+feeds['error']['message']);
                             let reduce_amount = limit/2;
+                            console.log("reduce_amount:"+reduce_amount);
                             crawlerFB(reduce_amount,retryFields,token,groupid,key,fin);
                         },again_time*1000);
                     }
@@ -467,12 +474,13 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                 },again_time*1000);//1 minutes
             }
             else{
-                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
+                fs.appendFile("./log/crawlerFB.err","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
                 fin("none");
                 return;
             }
         }
         else{
+            var err_status=0;
             try{
                 if(typeof body==="undefined"){
                     retryNum++;
@@ -489,11 +497,19 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
             }
             catch(e){
                 console.log("nextPage=>error"+e);
-                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
-                fin("error:nextPage=>error"+e);
+                fs.appendFile("./log/crawlerFB.err","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>nextPage:"+body+"\n",function(){});
+                retryNum++;
+                setTimeout(function(){
+                    console.log("["+groupid+"]Retry nextPage:body===err html");
+                    console.log("3.");
+                    nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin);
+                },again_time*1000);
+                err_status=1;
                 return;
             }
             finally{
+                if(err_status==1){return;}
+
                 if(typeof feeds === "undefined"){
                     retryNum++;
                     setTimeout(function(){
@@ -553,8 +569,8 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                         else{
                             fin("error:feeds['error']");
                         }
-                        return;
                     }
+                    return;
                 }
                 else if(typeof feeds['data']==="undefined"){
                     console.log("nextPage error =>feeds['data']");
