@@ -185,7 +185,10 @@ function start(token,fin){
                 var seeds = result.split(",");
                 var i;
                 for(i=0;i<seeds.length;i++){
-                    //console.log(seeds[i]);
+                    console.log(seeds[i]);
+                    if(seeds[i]==""||typeof seeds[i]==="undefined"){
+                        continue;
+                    }
                     try{
                         fs.accessSync(dir+'/'+country_location+'/'+seeds[i],fs.F_OK);
                     }
