@@ -16,6 +16,8 @@ var http = require('http');
 var server = http.createServer(app);
 
 var HashMap = require('hashmap');
+var processing = new HashMap();//record fetching seed
+var retry_key = new HashMap();//record err key=>id,fail count
 var map_key  = new HashMap();//to store local(Taiwan) id
 var foreign_map_key  = new HashMap();//to store others location id
 var map_botkey  = new HashMap();//(not yet)
@@ -37,9 +39,13 @@ var filename = service['idmanage_filename'];
 var foreign_filename = service['foreign_idmanage_filename'];
 var url_mapSize = service['size'];
 var tw_address_filename = service['tw_address'];
+var detectInterval =  service['detectInterval'];
+var expire_time =  service['expire_time'];
+var expire_filename = service['expire_filename'];
+var url_manager_log_filename = service['url_manager_log_filename'];
 var map_size=0;//update with url map(cronjob), using clearID function
 var foreign_map_size=0;//update with url map(cronjob), using clearID function
-var all_crawled=0;
+
 //var apiip = "localhost";
 
 
@@ -47,6 +53,8 @@ var from_seed_idIndex=0;
 var from_data_idIndex=0;
 var foreign_from_seed_idIndex=0;
 var foreign_from_data_idIndex=0;
+
+
 //--read data--
 ReadTWaddress();
 ReadID();
@@ -62,8 +70,26 @@ var job = new CronJob({
     timeZone:'Asia/Taipei'
 });
 job.start();
+//--detect expire term --
+var trace_term = new CronJob({
+    cronTime:detectInterval,
+    onTick:function(){
+        detectExpireTerm();
+    },
+    start:false,
+    timeZone:'Asia/Taipei'
+});
+trace_term.start();
 //new CronJob(writeidInterval,clearID, null, true, 'Asia/Taipei');
 //--server process--
+process.on('uncaughtException',(err)=>{
+    console.log("[start] writing...");
+    fs.writeFile(url_manager_log_filename,err,function(err){
+        if(err) throw err;
+        console.log("[done] write to:"+url_manager_log_filename);
+    });
+});
+
 process.on('SIGINT', function () {
     console.log("[Server stop] ["+new Date()+"] http stop at "+apiip+":"+apiport);
     job.stop();
@@ -79,7 +105,43 @@ server.listen(apiport,apiip,function(){
     console.log("[Server start] ["+new Date()+"] http work at "+apiip+":"+apiport);
 });
 //----------------
+function detectExpireTerm()
+{
+    var now = new Date();
+    var expire_list="";
+    processing.forEach((value,key)=>{
+        if(now.getTime()-expire_time*60*1000>new Date(value).getTime()){
+            console.log("["+now+"]--key:"+key+" has expired--"+value);
+            processing.remove(key);
+            var count = retry_key.get(key);
+            if(typeof count==='undefined'){
+                retry_key.set(key,1);
+                if(expire_list==""){
+                    expire_list=key+',1';
+                }
+                else{
+                    expire_list+='\n'+key+',1';
+                }
+            }
+            else{
+                count++;
+                retry_key.set(key,count);
+                if(expire_list==""){
+                    expire_list=key+','+count;
+                }
+                else{
+                    expire_list+='\n'+key+','+count;
+                }
+            }
+        }
+    });
 
+    console.log("[start] writing...");
+    fs.writeFile(expire_filename,expire_list,function(err){
+        if(err) throw err;
+        console.log("[done] write to:"+expire_filename);
+    });
+}
 
 //----------------
 
@@ -197,8 +259,8 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
 
     var result="";
     var parts = seeds.split("~");
-    var loca_parts="";
-    var id="",loca="";
+    var loca_parts="",loca="";
+    var id="";
     for(i=0;i<parts.length;i++){
         console.log(i+":"+parts[i]);
         if(parts[i]==""){
@@ -407,14 +469,16 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     }
     var num = req.query.num;
     var from_index = req.query.from;
-    console.log("1.num:"+num+"\n2.from index:"+from_index);
+
 
     var priorty = req.query.priorty;//not yet ,for data/seed priorty. Hasn't crawled first.
-    if(typeof num==="undefined"){
+    if(typeof num==="undefined"||num<=0){
         num=10;
     }
-    var values="";
-    num = parseInt(num);
+    else{
+        num = parseInt(num);
+    }
+
     if(country=="Taiwan"){
         var total_num = map_key.count();
         var values = map_key.values();
@@ -426,7 +490,8 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         var keys = foreign_map_key.keys();
     }
 
-    if(typeof from_index==="undefined"||from_index==-1){
+    var specific_index=0;
+    if(typeof from_index==="undefined"||from_index==-1||from_index<0||from_index>total_num){
         if(type=="databot"){
             if(country=="Taiwan"){
                 from_index=from_data_idIndex;
@@ -460,10 +525,11 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                 }
             }
         }
-
+    }
+    else{
+        specific_index=1;
     }
 
-    var index=0;
     var end_index=0;
 
     var nc_count=0,c_count=0;
@@ -473,19 +539,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     var seedf_jump_flag=0;
     var i,temp_index=-1;
     for(i=0;i<values.length;i++){
-        /*not yet*/
         /*
-        if(values[i]=="y"&&temp_index==-1){
-            if(country=="Taiwan"){
-                from_seed_idIndex=i;
-            }
-            else{
-                foreign_from_seed_idIndex=i;
-            }
-            temp_index++;
-        }
-        */
-        /*not yet*/
         if(type=="databot"){
             if(country=="Taiwan"){
                 if(i==from_index&&(values[i]!="c"||values[i]!="y")){
@@ -511,9 +565,10 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
 
         }
-
+        */
         if(type=="databot"){
             if(values[i]=="y"||values[i]=="c"){
+                /*
                 if(country=="Taiwan"){
                     if(data_jump_flag==1){
                         from_index = i;
@@ -526,6 +581,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                         dataf_jump_flag=0;
                     }
                 }
+                */
                 nc_count++;
             }
             else{
@@ -534,6 +590,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         }
         if(type=="seedbot"){
             if(values[i]!="c"){
+                /*
                 if(country=="Taiwan"){
                     if(seed_jump_flag==1){
                         from_index = i;
@@ -546,6 +603,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                         seedf_jump_flag=0;
                     }
                 }
+                */
                 nc_count++;
             }
             else{
@@ -554,36 +612,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         }
     }
 
-    if(type=="databot"){
-        if(country=="Taiwan"){
-            if(data_jump_flag==1&&nc_count!=0){
-                from_index = 0;
-            }
-        }
-        else{
-            if(dataf_jump_flag==1&&nc_count!=0){
-                from_index = 0;
-            }
-        }
-    }
-    else if(type=="seedbot"){
-        if(country=="Taiwan"){
-            if(seed_jump_flag==1&&nc_count!=0){
-                from_index = 0;
-            }
-        }
-        else{
-            if(seedf_jump_flag==1&&nc_count!=0){
-                from_index = 0;
-            }
-        }
-    }
-
-    /*
-       if(num>nc_count){
-       num = nc_count;
-       }
-       */
+    var all_crawled=0;
     if(nc_count==0){
         all_crawled=1;
     }
@@ -592,105 +621,51 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     }
 
     if(type=="seedbot"){
-        if(country=="Taiwan"){
-            if((from_index+num)>=total_num){
-                let sub = total_num-from_index;
-                if(sub<=0){
-                    from_index=0;
-                }
-                else{
-                    num=total_num-from_index;
-                }
-                //console.log("2.num:"+num+" total_num:"+total_num+" from_seed_idIndex:"+from_seed_idIndex);
+        if((from_index+num)>=total_num){
+            var sub = total_num-from_index;
+            if(sub<=0){
+                from_index=0;
             }
-        }
-        else{
-            if((from_index+num)>=total_num){
-                let sub = total_num-from_index;
-                if(sub<=0){
-                    from_index=0;
-                }
-                else{
-                    num=total_num-from_index;
-                }
-                //console.log("3.num:"+num+" total_num:"+total_num+" foreign_from_seed_idIndex:"+foreign_from_seed_idIndex);
+            else{
+                num=sub;
             }
         }
         console.log("--["+country+"]--\nrequest seed num:"+num);
+        end_index = from_index+num;
+        if(end_index>=total_num){
+            end_index = total_num;
+        }
         if(country=="Taiwan"){
-            /*
-            if(typeof from_index!=="undefined"&&from_index!=-1){
-                from_seed_idIndex=from_index;
-                all_crawled=1;
-            }
-            */
             console.log("from local index:"+from_index);
-            end_index = from_index+num;
             console.log("to local index:"+end_index);
         }
         else{
-            /*
-            if(typeof from_index!=="undefined"&&from_index!=-1){
-                foreign_from_seed_idIndex=from_index;
-                all_crawled=1;
-            }
-            */
             console.log("from foreign index:"+from_index);
-            end_index = from_index+num;
             console.log("to foreign index:"+end_index);
         }
     }
 
     else if(type=="databot"){
-        if(country=="Taiwan"){
-            if((from_index+num)>total_num){
-                let sub = total_num-from_index;
-                if(sub<=0){
-                    from_index=0;
-                }
-                else{
-                    num=total_num-from_index;
-                }
+        if((from_index+num)>total_num){
+            var sub = total_num-from_index;
+            if(sub<=0){
+                from_index=0;
             }
-        }
-        else{
-            if((from_index+num)>total_num){
-                let sub = total_num-from_index;
-                if(sub<=0){
-                    from_index=0;
-                }
-                else{
-                    num = total_num-from_index;
-                }
+            else{
+                num=sub;
             }
         }
         console.log("--["+country+"]--\nrequest data seed num:"+num);
+        end_index = from_index+num;
+        if(end_index>=total_num){
+            end_index = total_num;
+        }
         if(country=="Taiwan"){
-            /*
-            if(typeof from_index!=="undefined"&&from_index!=-1){
-                from_data_idIndex=from_index;
-                all_crawled=1;
-            }*/
             console.log("from local index:"+from_index);
-            end_index = from_index+num;
-            if(end_index>=total_num){
-                end_index = total_num;
-
-            }
             console.log("to local index:"+end_index);
         }
         else{
-            /*
-            if(typeof from_index!=="undefined"&&from_index!=-1){
-                foreign_from_data_idIndex=from_index;
-                all_crawled=1;
-            }
-            */
             console.log("from foreign index:"+from_index);
-            end_index = from_index+num;
-            if(end_index>=total_num){
-                end_index = total_num;
-            }
             console.log("to foreign index:"+end_index);
 
         }
@@ -704,22 +679,25 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     //check list status:how many url hasn't crawled
 
     var result="";
+    var run_index=0;
+    var next_index=-1;
     var j=0;
     if(country=="Taiwan"){
-        //map_key.forEach(function(value, key) {
-        var run_index=0;
-        for(run_index=0;run_index<total_num;run_index++){
+        if(all_crawled==1){
+            run_index=from_index;
+        }
+        for(;run_index<total_num;run_index++){
             var key = keys[run_index];
             var value=values[run_index];
             if(num==0){
-                //res.send("none");
-                //return false;
                 break;
             }
             if(type=="seedbot"){
                 if(all_crawled==0){
-                    if(index>=from_index&&value!="c"){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                    if(value!="c"){
+                        if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                            let now = new Date();
+                            processing.set(key,now);
                             if(j!=0){
                                 result+=","+key;
                             }
@@ -728,12 +706,18 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                             }
                             j++;
                         }
-
+                    }
+                    else{
+                        if(next_index==-1&&run_index>=from_index){
+                            next_index=run_index;
+                        }
                     }
                 }
                 if(all_crawled==1){
-                    if(index>=from_index){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                    if(run_index>=from_index){
+                        if(key.indexOf(" ")==-1&&key!=="undefined"&&key!=""&&!processing.has(key)){
+                            let now = new Date();
+                            processing.set(key,now);
                             if(j!=0){
                                 result+=","+key;
                             }
@@ -747,8 +731,10 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
             else if(type=="databot"){
                 if(all_crawled==0){
-                    if(index>=from_index&&(value=="y"||value=="c")){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                    if(value=="y"||value=="c"){
+                        if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                            let now = new Date();
+                            processing.set(key,now);
                             if(j!=0){
                                 result+=","+key;
                             }
@@ -758,89 +744,108 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                             j++;
                         }
                     }
-                }
-                if(all_crawled==1){
-                    if(index>=from_index){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
-                            if(j!=0){
-                                result+=","+key;
-                            }
-                            else{
-                                result+=key;
-                            }
-                            j++;
+                    else{
+                        if(next_index==-1&&run_index>=from_index){
+                            next_index=run_index;
                         }
+                    }
+                }
+                else if(all_crawled==1){
+                    if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                        let now = new Date();
+                        processing.set(key,now);
+                        if(j!=0){
+                            result+=","+key;
+                        }
+                        else{
+                            result+=key;
+                        }
+                        j++;
                     }
                 }
             }
-            index++;
             if(j==num){
-                num=0;
-                console.log("["+index+"]get url num = request num:"+j);
+                console.log("["+run_index+"]get url num = request num:"+j);
+                /*
                 if(type=="seedbot"){
-                    if(index>=from_index){
-                        from_seed_idIndex = index;
+                    if(run_index>=from_index){
+                        from_seed_idIndex = run_index;
                         console.log("0.next index:"+from_seed_idIndex);
                     }
                 }
                 else if(type=="databot"){
-                    if(index>=from_index){
-                        from_data_idIndex = index;
+                    if(run_index>=from_index){
+                        from_data_idIndex = run_index;
                         console.log("1.next index:"+from_data_idIndex);
                     }
                 }
-                //res.send(result);
-                //return false;
-                
+                */
+                run_index++;
                 break;
             }
-            else if(j!=0&&j<num&&index==total_num){
-                console.log("["+index+"]get url num != request num:"+j);
+            /*
+            else if((j!=0&&j<num&&run_index==(total_num-1))||j==0){
+                console.log("["+run_index+"]get url num != request num:"+j);
                 if(type=="seedbot"){
                     all_crawled=1;
                 }
                 else if(type=="databot"){
                     all_crawled=1;
                 }
-                //res.send(result);
-                
                 break;
             }
-            else if(index==total_num){
-                break;
-            }
+            */
         }
-
-        //});
         if(result==""){
             result="none";
         }
         res.send(result);
 
-        if(type=="seedbot"){
-            if(index>=from_index){
-                from_seed_idIndex = index;
-                console.log("2.next index:"+from_seed_idIndex);
+
+        if(specific_index==0){
+            if(type=="seedbot"){
+                if(run_index>=from_index&&next_index<from_index){
+                    from_seed_idIndex = run_index;
+                }
+                else if(next_index>from_index){
+                    from_seed_idIndex = next_index;
+                }
+                else{
+                    console.log("2.next index:"+from_seed_idIndex);
+                }
+
             }
-        }
-        else if(type=="databot"){
-            if(index>=from_index){
-                from_data_idIndex = index;
-                console.log("3.next index:"+from_data_idIndex);
+            else if(type=="databot"){
+                if(run_index>=from_index&&next_index<from_index){
+                    from_data_idIndex = run_index;
+                }
+                else if(next_index>from_index){
+                    from_data_idIndex = next_index;
+                }
+                else{
+                    console.log('3.run_index:'+run_index+' from_index:'+from_index+' next_index:'+next_index);
+                    console.log("3.next index:"+from_data_idIndex);
+                }
+
             }
         }
     }
     else{
-        foreign_map_key.forEach(function(value, key) {
-            if(num==0&&j==0){
-                //res.send('none');
-                return false;
+        if(all_crawled==1){
+            run_index=from_index;
+        }
+        for(;run_index<total_num;run_index++){
+            var key = keys[run_index];
+            var value=values[run_index];
+            if(num==0){
+                break;
             }
             if(type=="seedbot"){
                 if(all_crawled==0){
-                    //console.log("(#1)");
-                    if(index>=from_index&&value!="c"){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                    if(value!="c"){
+                        if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                            let now = new Date();
+                            processing.set(key,now);
                             if(j!=0){
                                 result+=","+key;
                             }
@@ -850,10 +855,17 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                             j++;
                         }
                     }
+                    else{
+                        if(next_index==-1&&run_index>=from_index){
+                            next_index=run_index;
+                        }
+                    }
                 }
                 if(all_crawled==1){
-                    if(index>=from_index){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                    if(run_index>=from_index){
+                        if(key.indexOf(" ")==-1&&key!=="undefined"&&key!=""&&!processing.has(key)){
+                            let now = new Date();
+                            processing.set(key,now);
                             if(j!=0){
                                 result+=","+key;
                             }
@@ -867,8 +879,10 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
             else if(type=="databot"){
                 if(all_crawled==0){
-                    if(index>=from_index&&(value=="y"||value=="c")){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
+                    if(value=="y"||value=="c"){
+                        if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                            let now = new Date();
+                            processing.set(key,now);
                             if(j!=0){
                                 result+=","+key;
                             }
@@ -878,76 +892,62 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                             j++;
                         }
                     }
-                }
-                if(all_crawled==1){
-                    if(index>=from_index){
-                        if(key.indexOf(" ")==-1&&key!="undefined"&&key!=""){
-                            if(j!=0){
-                                result+=","+key;
-                            }
-                            else{
-                                result+=key;
-                            }
-                            j++;
+                    else{
+                        if(next_index==-1&&run_index>=from_index){
+                            next_index=run_index;
                         }
+                    }
+                }
+                else if(all_crawled==1){
+                    if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                        let now = new Date();
+                        processing.set(key,now);
+                        if(j!=0){
+                            result+=","+key;
+                        }
+                        else{
+                            result+=key;
+                        }
+                        j++;
                     }
                 }
             }
-            index++;
             if(j==num){
-                num=0;
-                console.log("["+index+"]get url num = request num:"+j);
-                if(type=="seedbot"){
-                    if(index>=from_index){
-                        foreign_from_seed_idIndex = index;
-                        console.log("4.next index:"+foreign_from_seed_idIndex);
-                    }
-                }
-                else if(type=="databot"){
-                    if(index>=from_index){
-                        foreign_from_data_idIndex = index;
-                        console.log("5.next index:"+foreign_from_data_idIndex);
-                    }
-                }
-                //res.send(result);
-                return false;
+                console.log("["+run_index+"]get url num = request num:"+j);
+                run_index++;
+                break;
             }
-            else if(j!=0&&j<num&&index==total_num){
-                console.log("["+index+"]get url num != request num:"+j);
-                if(type=="seedbot"){
-                    all_crawled=1;
-                }
-                else if(type=="databot"){
-                    all_crawled=1;
-                }
-                //res.send(result);
-                return false;
-            }
+        }
 
-            else if(index==total_num){
-                //res.send("(#1)"+result);
-                return false;
-            }
-        });
-        
         if(result==""){
             result="none";
         }
         res.send(result);
 
-        if(type=="seedbot"){
-            if(index>=from_index){
-                foreign_from_seed_idIndex = index;
-                console.log("6.next index:"+foreign_from_seed_idIndex);
+        if(specific_index==0){
+            if(type=="seedbot"){
+                if(run_index>=from_index&&next_index<from_index){
+                    foreign_from_seed_idIndex = run_index;
+                }
+                else if(next_index>from_index){
+                    foreign_from_seed_idIndex = next_index;
+
+                }
+                console.log("4.next index:"+foreign_from_seed_idIndex);
             }
-        }
-        else if(type=="databot"){
-            if(index>=from_index){
-                foreign_from_data_idIndex = index;
+            else if(type=="databot"){
+                if(run_index>=from_index&&next_index<from_index){
+                    foreign_from_data_idIndex = run_index;
+                }
+                else if(next_index>from_index){
+                    foreign_from_data_idIndex = next_index;
+                }
                 console.log("7.next index:"+foreign_from_data_idIndex);
             }
         }
+
     }
+    
 });
 
 /*-------listing and searching url list-----------*/
@@ -1118,6 +1118,7 @@ function updateseedid(country,str,id,fin){
                 else{
                     result="update:"+id+","+str+"\n--";
                     map_key.set(id,str);
+                    processing.remove(id);
                 }
             }
             else{
@@ -1145,6 +1146,7 @@ function updateseedid(country,str,id,fin){
                 else{
                     result="update:"+id+","+str+"\n--";
                     foreign_map_key.set(id,str);
+                    processing.remove(id);
                 }
             }
             else{
@@ -1427,9 +1429,10 @@ function clearID(){
             //console.log("clear:"+key + " : " + value);
         }
     });
+    console.log("[start] writing...");
     fs.writeFile(filename,result,function(err){
         if(err) throw err;
-        console.log("write to:"+filename);
+        console.log("[done] write to:"+filename);
     });
     map_size = map_key.count();
 
@@ -1443,9 +1446,10 @@ function clearID(){
             //console.log("clear:"+key + " : " + value);
         }
     });
+    console.log("[start] writing...");
     fs.writeFile(foreign_filename,foreign_result,function(err){
         if(err) throw err;
-        console.log("write to:"+foreign_filename);
+        console.log("[done] write to:"+foreign_filename);
     });
     foreign_map_size = foreign_map_key.count();
 }

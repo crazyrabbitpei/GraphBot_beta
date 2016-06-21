@@ -18,7 +18,7 @@ var count=0;
 var socket_num=0;
 /*-----------init seed, reading setting--------------*/
 var service1 = JSON.parse(fs.readFileSync('./service/seeds'));
-var seeds = service1['seeds'];
+var fields = service1['fields'];
 var version = service1['version'];
 var appid = service1['id'];
 var yoyo = service1['yoyo'];
@@ -30,35 +30,16 @@ var seed_require_Interval = service1['seed_require_Interval'];
 
 exports.service1 = service1;
 
-//likes?fields=talking_about_count,likes
 var seed_id;
 var again_flag=0;
 var old_check=0;
 var total_old_check=0;
-/*
-   for(seed_id=0;seed_id<seeds.length;seed_id++){
-   console.log("seed:"+seeds[seed_id]['id']);
-   insertSeed(seeds[seed_id]['id'],function(status){
-//console.log(status);
-});
-getSeed(seeds[seed_id]['id'],appid+"|"+yoyo,function(result){
-if(result!="error"){
-//console.log("get seed:"+result);
-insertSeed(result,function(status){
-//console.log(status);
-});
-}
-else{
-console.log("init=>getSeed:err_log");
-}
-});
-}
-*/
+
 if(!module.parent){
     var service = JSON.parse(fs.readFileSync('./service/url_manager'));
     var tw_address_filename = service['tw_address'];
     var jump_interval=-1;
-    var require_num=50;
+    var require_num=5;
     var count=0;
     var job = new CronJob({
         cronTime:seed_require_Interval,
@@ -66,12 +47,10 @@ if(!module.parent){
             requireSeed(require_num,jump_interval);
             //jump_interval+=require_num;
             count++;
-            /*
             if(count>3){
                 job.stop();
                 console.log("--STOP--");
             }
-            */
             /*
             if(jump_interval>=8500){
                 jump_interval = 0;
@@ -106,7 +85,7 @@ function requireSeed(num,from_index){
             return;
         }
         getSeed(body,appid+"|"+yoyo,function(result){
-            if(result!="error"){
+            if(result!="error"&&result!="empty"){
                 //console.log("=>get seed:\n"+result+"\n");
                 insertSeed(result,function(stat){
                     if(stat!="old"){
@@ -150,7 +129,7 @@ function getSeed(groupid,token,fin){
     //console.log("socket_num:"+socket_num);
     //console.log("graph_reauest:"+graph_request);
     request({
-        uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields=location,id,name,talking_about_count,likes,were_here_count,category,is_community_page",
+        uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields="+fields,
         timeout: 10000
     },function(error, response, body){
         try{
@@ -231,7 +210,14 @@ function getSeed(groupid,token,fin){
                                 }
                                 else if(typeof feeds[page_name]['data'][i]['location']['city']!=="undefined"){
                                     loca = feeds[page_name]['data'][i]['location']['city'];
-
+                                }
+                                else if(typeof feeds[page_name]['data'][i]['locatoin']['street']!=="undefined"){
+                                    var ischt = feeds[page_name]['data'][i]['location']['street'].match(/[\u4e00-\u9fa5]/ig);//this will include chs
+                                    if(ischt!=null){
+                                        if(loca==""||loca=="Other"){
+                                            loca="Taiwan";
+                                        }
+                                    }
                                 }
 
                             }
@@ -243,8 +229,9 @@ function getSeed(groupid,token,fin){
                                     }
                                 }
                             }
-                            searchSeed(country,feeds[page_name]['data'][i]['id'],feeds[page_name]['data'][i]['name'],loca,feeds[page_name]['data'][i]['category'],feeds[page_name]['data'][i]['likes'],feeds[page_name]['data'][i]['talking_about_count'],feeds[page_name]['data'][i]['were_here_count'],function(checkid){
+                            searchSeed(country,feeds[page_name]['data'][i]['id'],feeds[page_name]['data'][i]['name'],loca,feeds[page_name]['data'][i]['category'],feeds[page_name]['data'][i]['likes'],feeds[page_name]['data'][i]['talking_about_count'],feeds[page_name]['data'][i]['were_here_count'],feeds[page_name]['data'][i]['insights']['data'],function(checkid){
                             });      
+
                             loca = loca.replace("~","");
                             loca = loca.replace(":","");
                             loca = loca.replace(/[0-9]/g,"");
@@ -260,6 +247,14 @@ function getSeed(groupid,token,fin){
                                 else if(typeof feeds[page_name]['data'][i]['location']['city']!=="undefined"){
                                     loca = feeds[page_name]['data'][i]['location']['city'];
 
+                                }
+                                else if(typeof feeds[page_name]['data'][i]['locatoin']['street']!=="undefined"){
+                                    var ischt = feeds[page_name]['data'][i]['location']['street'].match(/[\u4e00-\u9fa5]/ig);//this will include chs
+                                    if(ischt!=null){
+                                        if(loca==""||loca=="Other"){
+                                            loca="Taiwan";
+                                        }
+                                    }
                                 }
 
                             }
@@ -335,7 +330,9 @@ function insertSeed(ids,fin){
     //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?ids='+ids);
     socket_num++;
     //console.log("socket_num:"+socket_num);
+    
     var temp_ids = querystring.stringify({ids:ids});
+    console.log(temp_ids);
     request({
         //method:'POST',
         uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?'+temp_ids,
@@ -381,6 +378,7 @@ function insertSeed(ids,fin){
                 job.stop();
                 process.exit(0);
             }
+            /*
             else if(country=="Taiwan"&&old_check>500){
                 //old_check++;
                 old_check=0;
@@ -398,6 +396,7 @@ function insertSeed(ids,fin){
                 job.stop();
                 job.start();
             }
+            */
             fin("old");
             return;
         }
@@ -703,7 +702,6 @@ function searchSeed(country,id,name,loca,category,likes,talking_about_count,were
             return;
         }
         else{
-
             var parts = body.split(":");
             if(parts[1]==""||typeof parts[1]==="undefined"||parts[1]=="undefined"){
                 var loca_temp = loca.replace(/[0-9]/g,"");

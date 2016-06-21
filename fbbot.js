@@ -216,7 +216,6 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                 if(feeds['error']){
                     if(feeds['error']['message']=="(#4) Application request limit reached"){
                         console.log("Application request limit reached:"+graph_request+" Waitting for 3 hours...");
-                        //process.exit(0);
                         setTimeout(function(){
                             crawlerFB(limit,retryFields,token,groupid,key,fin);
                         },10800*1000);
@@ -224,26 +223,29 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     }
                     else if(feeds['error']['message']=="(#2) Service temporarily unavailable"){
                         console.log("["+groupid+"]Service temporarily unavailable:"+graph_request+" Waitting for 10 minutes...");
-                        //process.exit(0);
+                        console.log('retryFields:'+retryFields);
+                        retryNum++;
+                        let reduce_amount = Math.round(limit/2);
+                        console.log("reduce_amount:"+reduce_amount);
                         setTimeout(function(){
-                            crawlerFB(limit,retryFields,token,groupid,key,fin);
+                            crawlerFB(reduce_amount,retryFields,token,groupid,key,fin);
                         },600*1000);
                         return;
                     }
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."||feeds['error']['message'].indexOf("unknown error")!=-1){
+                        console.log("["+groupid+"]Retry crawlerFB:unexpected/unknown:"+feeds['error']['message']);
                         retryNum++;
+                        let reduce_amount = Math.round(limit/2);
+                        console.log("reduce_amount:"+reduce_amount);
                         setTimeout(function(){
-                            console.log("["+groupid+"]Retry crawlerFB:unexpected/unknown:"+feeds['error']['message']);
-                            let reduce_amount = Math.round(limit/2);
-                            console.log("reduce_amount:"+reduce_amount);
                             crawlerFB(reduce_amount,retryFields,token,groupid,key,fin);
                         },again_time*1000);
                     }
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
                         retryNum++;
+                        console.log("["+groupid+"]Retry crawlerFB:unknown:"+feeds['error']['message']);
+                        let reduce_amount = Math.round(limit/2);
                         setTimeout(function(){
-                            console.log("["+groupid+"]Retry crawlerFB:unknown:"+feeds['error']['message']);
-                            let reduce_amount = Math.round(limit/2);
                             crawlerFB(reduce_amount,retryFields,token,groupid,key,fin);
                         },again_time*1000);
                     }
@@ -565,35 +567,64 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                 else if(feeds['error']){
                     if(feeds['error']['message']=="(#4) Application request limit reached"){
                         console.log("Application request limit reached:"+graph_request+" Waitting for 3 hours...");
-                        //process.exit(0);
                         setTimeout(function(){
                             nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },10800*1000);
                         return;
                     }
                     else if(feeds['error']['message']=="(#2) Service temporarily unavailable"){
-                        console.log("["+groupid+"]Service temporarily unavailable:"+graph_request+" Waitting for 10 minutes...");
-                        //process.exit(0);
+                        var cut_npage=npage.split('limit='+limit);
+                        var reduce_amount = Math.round(limit/2);
+                        var new_npage="";
+                        console.log('cut_npage[1]:'+cut_npage[1]);
+                        if(typeof cut_npage[1]!=='undefined'){
+                            new_npage = cut_npage[0]+'limit='+reduce_amount+cut_npage[1];
+                        }
+                        else{
+                            new_npage = cut_npage[0]+'limit='+reduce_amount;
+                        }
+                        console.log("Reduce to:"+reduce_amount);
+                        console.log("["+groupid+"]Service temporarily unavailable:"+graph_request+"url:"+new_npage+"\nWaitting for 10 minutes...");
+                        retryNum++;
                         setTimeout(function(){
-                            nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
+                            nextPage(reduce_amount,retryFields,key,new_npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },600*1000);
                         return;
                     }
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."||feeds['error']['message'].indexOf("unknown error")!=-1){
+                        var cut_npage=npage.split('limit='+limit);
+                        var reduce_amount = Math.round(limit/2);
+                        var new_npage="";
+                        console.log('cut_npage[1]:'+cut_npage[1]);
+                        if(typeof cut_npage[1]!=='undefined'){
+                            new_npage = cut_npage[0]+'limit='+reduce_amount+cut_npage[1];
+                        }
+                        else{
+                            new_npage = cut_npage[0]+'limit='+reduce_amount;
+                        }
+                        console.log("Reduce to:"+reduce_amount);
+                        console.log("["+groupid+"]4.Retry:unexpected/unknown:"+feeds['error']['message']+'\nurl:'+new_npage);
                         retryNum++;
                         setTimeout(function(){
-                            console.log("["+groupid+"]4.Retry:unexpected/unknown:"+feeds['error']['message']);
-                            var reduce_amount = Math.round(limit/2);
-                            console.log("Reduce to:"+reduce_amount);
-                            nextPage(reduce_amount,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
+                            nextPage(reduce_amount,retryFields,key,new_npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },again_time*1000);
                     }
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
+                        var cut_npage=npage.split('limit='+limit);
+                        var reduce_amount = Math.round(limit/2);
+                        var new_npage="";
+                        console.log('cut_npage[1]:'+cut_npage[1]);
+                        if(typeof cut_npage[1]!=='undefined'){
+                            new_npage = cut_npage[0]+'limit='+reduce_amount+cut_npage[1];
+                        }
+                        else{
+                            new_npage = cut_npage[0]+'limit='+reduce_amount;
+                        }
+                        console.log("Reduce to:"+reduce_amount);
+                        console.log("["+groupid+"]4.Another Retry:"+feeds['error']['message']+'\nurl:'+new_npage);
                         retryNum++;
                         setTimeout(function(){
-                            console.log("["+groupid+"]4.Another Retry:"+feeds['error']['message']);
-                            var reduce_amount = Math.round(limit/2);
-                            nextPage(reduce_amount,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
+                            nextPage(reduce_amount,retryFields,key,new_npage,depth_link,token,groupid,end_flag,now_flag,fin)
                         },again_time*1000);
                     }
                     else{
@@ -611,11 +642,13 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                                 return;
                             }
                         });
-                        if(feeds['error']['message'].indexOf("Unsupported")!=-1){
+                        if(feeds['error']['message'].indexOf("Unsupported")!=-1||feeds['error']['message'].indexOf("nonexisting field")!=-1){
                             fin("none");
                         }
                         else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
-                            var d_seed,n_seed;                                                                                                    d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;                                                   n_seed = S(feeds['error']['message']).between('page ID ','.').s;
+                            var d_seed,n_seed;
+                            d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;
+                            n_seed = S(feeds['error']['message']).between('page ID ','.').s;
                             url_manager.deleteSeed(d_seed,function(stat){
                             });
                             url_manager.insertSeed4filter("-1",n_seed,function(stat){
