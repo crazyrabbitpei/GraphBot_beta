@@ -40,12 +40,22 @@ var migratedID_filename = service1['migratedID_filename'];
 var seed_record = service1['seed_record'];
 var group_filename = service1['group_filename'];
 
+var jump_index=0;
 var old_check=0;
-
 
 const myEmitter = new MyEmitter();
 myEmitter.on('requireSeed', () => {
-    requireSeed(require_num,from_seedIndex);
+    if(jump_index==0){
+        jump_index=from_seedIndex+require_num;
+    }
+    else{
+        jump_index=jump_index+require_num;
+    }
+    setTimeout(()=>{
+        console.log('===jump_index:'+jump_index+'===');
+        requireSeed(require_num,jump_index);
+    },2*1000);
+    //requireSeed(require_num,from_seedIndex);
 });
 
 requireSeed(require_num,from_seedIndex);

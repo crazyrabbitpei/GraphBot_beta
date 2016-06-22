@@ -1,5 +1,4 @@
 'use strict'
-
 var CronJob = require('cron').CronJob;
 var request = require('request');
 var http = require('http');
@@ -28,13 +27,16 @@ try {
     var version = service1['version'];
     var limit = service1['limit'];
     var fields = service1['fields'];
+    var reduce_fields = service1['reduce_fields'];
     var info = service1['info'];
     var dir = service1['dir'];
+    var log = service1['log'];
+    var crawled_filename = service1['crawled_filename'];
+    var err_filename = service1['err_filename'];
     var country_location = service1['country'];
     var again_time = service1['again_time'];
     var grab_limit = service1['grab_limit'];
     var limit_retry = service1['limit_retry'];
-    var retryFields = service1['retryFields'];
 
     var service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
     var appid = service2['id'];
@@ -65,8 +67,11 @@ try {
     exports.version=version;
     exports.limit=limit;
     exports.fields=fields;
+    exports.reduce_fields=reduce_fields;
     exports.info=info;
     exports.dir=dir;
+    exports.log=log;
+    exports.err_filename=err_filename;
     exports.again_time=again_time;
     exports.grab_limit=grab_limit;
     exports.country_location=country_location;
@@ -123,8 +128,7 @@ function setpromise(token){
             let end_d  = new Date();
             let date_end = dateFormat(end_d, "yyyymmdd_HHMM");
             if(crawled_id!="crawled"){
-                fs.appendFile('./log/'+date+'.oklist',"total nums:"+records_num+"\nstart:"+date_start+"\nend:"+date_end+"\n"+crawled_id+"\n--\n",function(){
-                });
+                writeLog("total nums:"+records_num+"\nstart:"+date_start+"\nend:"+date_end+"\n"+crawled_id,'crawler','append');
             }
             if(success_url<grab_limit){
                 setpromise(token);          
@@ -152,9 +156,8 @@ function setpromise(token){
     }).catch(function(error){
         let now  = new Date();
         let date = dateFormat(now, "yyyymmdd");
-        fs.appendFile('./log/'+date+'.err','error:'+error+'\n',function(){
-            console.log("promise error occur");
-        });
+        console.log("promise error occur");
+        writeLog('[promise error occur] error:'+error,'error','append');
     });
     
 }
@@ -171,7 +174,8 @@ function start(token,fin){
             requireSeed(request_num,-1,function(result){
                 //console.log(result);
                 if(result=="none"){
-                    fs.appendFile(dir+"/err_log","init=>requireSeed:has map is empty\n",function(){});
+                    //fs.appendFile(log+'/'+date+err_filename,"init=>requireSeed:has map is empty\n",function(){});
+                    writeLog('[start] error:init=>requireSeed:has map is empty','error','append');
                     console.log("init=>requireSeed:has map is empty");
                     fin(result);
                     return;
@@ -223,7 +227,8 @@ function requireSeed(num,from_index,fin){
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
         if(error){
-            fs.appendFile(dir+"/err_log","requireSeed:"+error+"\n",function(){});
+            //fs.appendFile(log+'/'+date+err_filename,"requireSeed:"+error+"\n",function(){});
+            writeLog("[requireSeed] error:"+error,"error","append");
             fin("error");
             return;
         }
@@ -239,7 +244,8 @@ function get_accessToken(fin){
     //uri: "https://graph.facebook.com/"+version+"/"+groupid+"/feed?access_token="+accesst+"&limit="+limit,
     },function(error, response, body){
         if(error){
-            fs.appendFile(dir+"/err_log","get_accessToken:"+error+"\n",function(){});
+            //fs.appendFile(log+'/'+date+err_filename,"get_accessToken:"+error+"\n",function(){});
+            writeLog("[get_accessToken] error:"+error,"error","append");
             get_accessToken(fin);
         }
         else{
@@ -251,7 +257,8 @@ function get_accessToken(fin){
                 }
                 else{
                     if(token['error']){
-                        fs.appendFile(dir+"/err_log","get_accessToken:"+body+"\n",function(){});
+                        //fs.appendFile(log+'/'+date+err_filename,"get_accessToken:"+body+"\n",function(){});
+                        writeLog("[get_accessToken] body:"+body,"error","append");
                         fin("error");
                         return;
                     }
@@ -262,7 +269,8 @@ function get_accessToken(fin){
                 }
             }
             catch(e){
-                fs.appendFile(dir+"/err_log","get_accessToken:"+e+"\n",function(){});
+                //fs.appendFile(log+'/'+date+err_filename,"get_accessToken:"+e+"\n",function(){});
+                writeLog("[get_accessToken] error:"+e,"error","append");
                 console.log('get_accessToken error:'+e);
                 fin("error");
                 return;
@@ -276,7 +284,7 @@ function get_accessToken(fin){
 function setBot(botkey,groupid,token,fin){
     console.log("--\ngo groupid:"+groupid);
     try{
-        fbBot.crawlerFB(limit,retryFields,token,groupid,botkey,function(result){
+        fbBot.crawlerFB(limit,'',token,groupid,botkey,function(result){
             current_url++;
             console.log("current num:"+current_url);
             if(result=="error"){
@@ -291,4 +299,27 @@ function setBot(botkey,groupid,token,fin){
     catch(e){
         console.log(e);
     }
+}
+function writeLog(msg,type,opt)
+{
+    var now = new Date();
+    var logdate = dateFormat(now,'yyyymmdd');
+    if(opt=='append'){
+        if(type=='error'){
+            fs.appendFile(log+'/'+logdate+err_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+        else if(type=='crawler'){
+            fs.appendFile(log+'/'+logdate+crawled_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+    }
+    else if(opt=='write'){
+        if(type=='error'){
+            fs.writeFile(log+'/'+logdate+err_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+        else if(type=='crawler'){
+            fs.writeFile(log+'/'+logdate+crawled_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+
+    }
+
 }
