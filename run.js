@@ -33,8 +33,10 @@ try {
     var log = service1['log'];
     var crawled_filename = service1['crawled_filename'];
     var err_filename = service1['err_filename'];
+    var delete_filename = service1['delete_filename'];
     var country_location = service1['country'];
     var again_time = service1['again_time'];
+    var keyexpired_again_time = service1['keyexpired_again_time'];
     var grab_limit = service1['grab_limit'];
     var limit_retry = service1['limit_retry'];
 
@@ -72,7 +74,9 @@ try {
     exports.dir=dir;
     exports.log=log;
     exports.err_filename=err_filename;
+    exports.delete_filename=delete_filename;
     exports.again_time=again_time;
+    exports.keyexpired_again_time=keyexpired_again_time;
     exports.grab_limit=grab_limit;
     exports.country_location=country_location;
     

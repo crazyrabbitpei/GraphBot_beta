@@ -12,19 +12,13 @@ var storeinfo = require('./tool/format.js');
 var url_manager = require('./getseed');
 var myModule = require('./run');
 
-var count=0;
 var graph_request=0;
 var records_num=0;
 
-
-var cutf_flag=0;
 var retryNum = 0;
 
 function crawlerFB(limit,retryFields,token,groupid,key,fin){
-    records_num=0;
-    //var groupid = myModule.groupid;
     let version = myModule.version;
-    //let limit = myModule.limit;
     let limit_retry = myModule.limit_retry;
     let reduce_fields = myModule.reduce_fields;
     let fields = myModule.fields;
@@ -38,117 +32,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
     let yoyo = myModule.yoyo;
     let id_serverip = myModule.id_serverip;
     let id_serverport = myModule.id_serverport;
-    /*
     graph_request++;
-    request({
-        uri: "https://graph.facebook.com/"+version+"/"+groupid+"/?access_token="+token+"&fields="+info,
-        timeout:10000
-    },function(error, response, body){
-        if(error){
-            if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
-                setTimeout(function(){
-                    console.log("Retry crawlerFB=>about:"+error.code);
-                    crawlerFB(token,groupid,key,fin);
-                },again_time*1000);//1 minutes
-                return;
-            }
-            fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+error+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
-        }
-        else{
-            try{
-                if(typeof body==="undefined"){
-                    setTimeout(function(){
-                        console.log("Retry crawlerFB:body===undefined");
-                        crawlerFB(token,groupid,key,fin);
-                    },again_time*1000);
-                    return;
-                }
-                else{
-                    var about = JSON.parse(body);
-                }
-            }
-            catch(e){
-                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:"+e+"\ncrawlerFB=>talking_about_count,likes:"+body+"\n",function(){});
-                fin("error");
-                return;
-            }
-            finally{
-                if(about['error']){
-                    if(about['error']['message']=="(#4) Application request limit reached"){
-                        console.log("Application request limit reached:"+graph_request);
-                        process.exit(0);
-                    }
-                    else if(about['error']['message']=="An unexpected error has occurred. Please retry your request later."){
-                        setTimeout(function(){
-                            console.log("6.Retry");
-                            crawlerFB(token,groupid,key,fin);
-                        },again_time*1000);
-                        return;
-                    }
-                    else if(about['error']['message'].indexOf("retry")!=-1){
-                        setTimeout(function(){
-                            console.log("6.Another Retry");
-                            crawlerFB(token,groupid,key,fin);
-                        },again_time*1000);
-                        return;
-                    }
-                    else{
-                        fs.appendFile(dir+"/err_list",groupid+"\n",function(){});
-                        fs.appendFile(dir+"/"+country+"/"+groupid+"/about","id:"+about['id']+"\nlocation:none\ntalking_about_count:-1\nlikes:-1\nwere_here_count:-1\ncategory:none",function(){});
-                        deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
-                            if(st=="error"){
-                                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:deleteid2Server",function(){});
-                                fin("error:deleteid2Server");
-                                return;
-                            }
-                        });
-                        fin("error:about['error']");
-                        return;
-                    }
-                }
-                else{
-                    //was created by fb system
-                    console.log("is_community_page:"+about['is_community_page']);
-                    if(about['is_community_page']==true){
-                        fs.appendFile(dir+"/delete_list",groupid+"\n",function(){});
-                        deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
-                            if(st=="error"){
-                                fs.appendFile(dir+"/err_log","--\n["+groupid+"] error:deleteid2Server",function(){});
-                                fin("error:deleteid2Server");
-                                return;
-                            }
-                        });
-                    }
-                    let location="none";
-                    if(typeof about['location'] !=="undefined"){
-                        if(typeof about['location']['country']!== "undefined"){
-                            location = about['location']['country'];
-                        }
-                        else if(typeof about['location']['city']!=="undefined"){
-                            location = about['location']['city'];
-                        }
-                    }
-
-                    fs.writeFile(dir+"/"+country+"/"+groupid+"/about","id:"+about['id']+"\nlocation:"+location+"\ntalking_about_count:"+about['talking_about_count']+"\nlikes:"+about['likes']+"\nwere_here_count:"+about['were_here_count']+"\ncategory:"+about['category'],function(){});
-                    fs.appendFile(dir+"/"+country+"/groups_info.list","@\n@id:"+about['id']+"\n@location:"+location+"\n@talking_about_count:"+about['talking_about_count']+"\n@likes:"+about['likes']+"\n@were_here_count:"+about['were_here_count']+"\n@category:"+about['category']+"\n",function(){});
-                }
-            }
-        }
-    });
-    */
-    graph_request++;
-    /*
-    if(cutf_flag==1){
-        checkposts(retryFields,version,groupid,token,limit,function(stat){
-            if(stat=="ok"){
-
-            }
-            else{
-                
-            }
-        });
-    }
-    */
     if(retryNum>limit_retry){
         retryNum=0;
         let now = new Date();
@@ -168,7 +52,6 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
         if(error){
             if(error.code==='ETIMEDOUT'||error.code==='ESOCKETTIMEDOUT'){
                 retryNum++;
-
                 setTimeout(function(){
                     console.log("["+retryNum+"]["+groupid+"]Retry crawlerFB:"+error.code);
                     crawlerFB(limit,retryFields,token,groupid,key,fin);
@@ -217,11 +100,13 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     return;
                 }
                 if(feeds['error']){
+                    let keyexpired_again_time = myModule.keyexpired_again_time;
                     if(feeds['error']['message']=="(#4) Application request limit reached"){
-                        console.log("Application request limit reached:"+graph_request+" Waitting for 3 hours...");
+                        console.log("Application request limit reached:"+graph_request+" Waitting for "+keyexpired_again_time+" secs...");
                         setTimeout(function(){
                             crawlerFB(limit,retryFields,token,groupid,key,fin);
-                        },10800*1000);
+                        },keyexpired_again_time*1000);
+                        graph_request=0;
                         return;
                     }
                     else if(feeds['error']['message']=="(#2) Service temporarily unavailable"){
@@ -290,28 +175,42 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     else{
                         console.log("crawlerFB=>feeds['error']");
                         writeLog('['+groupid+'] error:feeds["error"]\nbody:'+body,'crawlerFB error','append');
-                        deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
-                            let now = new Date();
-                            let date = dateFormat(now, "yyyymmdd");
+                        deleteid2Server(key,id_serverip,id_serverport,groupid,function(st,back_id,err_msg){
                             if(st=="error"){
-                                writeLog('['+groupid+'] error:deleteid2Server error','crawlerFB error','append');
+                                writeLog('['+back_id+'] error:'+err_msg,'deleteid2Server error','append');
                                 fin("error:deleteid2Server");
                                 return;
                             }
+                            else if(st=='delete'){
+                                writeLog(back_id,'deleteID','append');
+                            }
                         });
-                        if(feeds['error']['message'].indexOf("Unsupported")!=-1){
+                        if(feeds['error']['message'].indexOf("Unsupported")!=-1||feeds['error']['message'].indexOf("nonexisting field")!=-1){
                             fin("none");
                         }
                         else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
-                            var d_seed,n_seed;                                                                                                    d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;                                                   n_seed = S(feeds['error']['message']).between('page ID ','.').s;
+                            var d_seed,n_seed;                                                    
+                            d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;               
+                            n_seed = S(feeds['error']['message']).between('page ID ','.').s;
+                            let country = myModule.country_location;
+                            insertid2Server(key,id_serverip,id_serverport,n_seed,country,function(st,back_id,err_msg){
+                                if(st=="error"){
+                                    writeLog('['+back_id+'] error:'+err_msg,'insertid2Server error','append');
+                                    fin("error:insertid2Server");
+                                    return;
+                                }
+                            });
+                            /*
                             url_manager.deleteSeed(d_seed,function(stat){
                             });
+                            */
+                            /*
                             url_manager.insertSeed4filter("-1",n_seed,function(stat){
                                 if(stat!="old"){
                                     console.log(stat+":"+n_seed);
                                 }
                             });
-                            fin("none");
+                            */
                         }
                         else{
                             fin("error:"+feeds['error']['message']);
@@ -323,16 +222,15 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                 else if(typeof feeds['data']==="undefined"){
                     console.log("crawlerFB error =>feeds['data']");
                     writeLog('['+groupid+'] error:feeds["data"]==="undefined"\nbody:'+body,'crawlerFB error','append');
-                    deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
-                        let now = new Date();
-                        let date = dateFormat(now, "yyyymmdd");
+                    deleteid2Server(key,id_serverip,id_serverport,groupid,function(st,back_id,err_msg){
                         if(st=="error"){
-                            writeLog('['+groupid+'] error:deleteid2Server error','crawlerFB error','append');
+                            writeLog('['+back_id+'] error:'+err_msg,'deleteid2Server error','append');
                             fin("error:deleteid2Server");
-                            return;
+                        }
+                        else if(st=='delete'){
+                            writeLog(back_id,'deleteID','append');
                         }
                     });
-                    fin("error:feeds['data']");
                     return;
                 }
 
@@ -354,11 +252,9 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                             return;
                         }
                         else if(status=="yes"){//has isCrawled, and no new post
-                            updateid2Server(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["created_time"],function(st){
-                                let now = new Date();
-                                let date = dateFormat(now, "yyyymmdd");
+                            updateid2Server(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["created_time"],function(st,back_id,err_msg){
                                 if(st=="error"){
-                                    writeLog('['+groupid+'] error:updateid2Server error','crawlerFB error','append');
+                                    writeLog('['+back_id+'] error:'+err_msg,'updateid2Server error','append');
                                     fin("error:updateid2Server");
                                 }
                                 else{
@@ -368,11 +264,9 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                             });
                         }
                         else if(status=="no"){
-                            updateid2Server(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["created_time"],function(st){
-                                let now = new Date();
-                                let date = dateFormat(now, "yyyymmdd");
+                            updateid2Server(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["created_time"],function(st,back_id,err_msg){
                                 if(st=="error"){
-                                    writeLog('['+groupid+'] error:updateid2Server error','crawlerFB error','append');
+                                    writeLog('['+back_id+'] error:'+err_msg,'updateid2Server error','append');
                                     fin("error:updateid2Server");
                                     return;
                                 }
@@ -482,17 +376,16 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     });
                 }
                 else{
-                    updateid2Server(key,id_serverip,id_serverport,country,groupid,date,function(st){
-                        let now = new Date();
-                        let date = dateFormat(now, "yyyymmdd");
+                    updateid2Server(key,id_serverip,id_serverport,country,groupid,date,function(st,back_id,err_msg){
                         if(st=="error"){
-                            writeLog('['+groupid+'] error:updateid2Server error','crawlerFB error','append');
+                            writeLog('['+back_id+'] error:'+err_msg,'updateid2Server error','append');
                             fin("error:updateid2Server");
-                            return;
                         }
+                        else{
+                            fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
+                        }
+                        return;
                     });
-                    fin("endTONext@Gais:"+groupid+"endTONext@Gais:"+records_num);
-                    return;
                 }
 
             }
@@ -515,20 +408,80 @@ function updateid2Server(key,id_serverip,id_serverport,country,id,time,fin)
         var now = new Date();
         var date = dateFormat(now, "yyyymmdd");
         if(error){
-            console.log('updateid2Server:'+error);
-            writeLog('['+id+'] error:'+error,'updateid2Server error','append');
-            setTimeout(function(){
-                console.log("["+ids+"]Retry updateid2Server");
-                updateid2Server(key,id_serverip,id_serverport,country,id,time,fin);
-            },again_time*1000);
+            if(error.code.indexOf('TIMEDOUT')!=-1){
+                console.log('['+error.code+'] Retry updateid2Server after '+again_time+' secs...');
+                retryNum++;
+                if(retryNum>limit_retry){
+                    retryNum=0;
+                    fin('error',id,error);
+                }
+                else{
+                    setTimeout(()=>{
+                        updateid2Server(key,id_serverip,id_serverport,country,id,time,fin);
+                    },again_time*1000);
+                }
+            }
+            else{
+                console.log('updateid2Server:'+error);
+                fin('error',id,error);
+            }
         }
         else if(body=="illegal request"){
             console.log("updateid2Server:"+body);
             writeLog('['+id+'] body:'+body,'updateid2Server error','append');
-            fin("error");
+            fin("error",id,body);
         }
         else{
-            fin("ok");
+            fin("update",id,'');
+        }
+    });
+}
+function insertid2Server(key,id_serverip,id_serverport,id,loca,fin){
+    let country = myModule.country_location;
+    let dir = myModule.dir;
+    var id_loca = id+':'+loca;
+    var temp_ids = querystring.stringify({ids:id_loca});
+    request({
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?'+temp_ids,
+        timeout: 10000
+    },function(error, response, body){
+        var again_time = myModule.again_time;
+        var now = new Date();
+        var date = dateFormat(now, "yyyymmdd");
+        if(error){
+            if(error.code.indexOf('TIMEDOUT')!=-1){
+                console.log('['+error.code+'] Retry insertid2Server after '+again_time+' secs...');
+                retryNum++;
+                if(retryNum>limit_retry){
+                    retryNum=0;
+                    fin('error',id,error);
+                }
+                else{
+                    setTimeout(()=>{
+                        insertid2Server(key,id_serverip,id_serverport,id,loca,fin);
+                    },again_time*1000);
+                }
+            }
+            else{
+                console.log("insertid2Server:"+error);
+                fin("error",id,error);
+            }
+
+        }
+        else if(body=="illegal request"){//url request error
+            console.log("insertid2Server:"+body);
+            fin("error",id,body);
+        }
+        else if(body==""){
+            //console.log("insert seed fail");
+            fin('exist',id,body);
+        }
+        else if(body=='full'){
+            console.log("url map is full:"+body);
+            fin('full',id,body);
+        }
+        else{
+            fin("insert",body,'');
         }
     });
 }
@@ -543,31 +496,43 @@ function deleteid2Server(key,id_serverip,id_serverport,id,fin){
         var now = new Date();
         var date = dateFormat(now, "yyyymmdd");
         if(error){
-            console.log("deleteid2Server:"+error);
-            writeLog('['+id+'] error:'+error,'deleteid2Server error','append');
-            fin("error");
-            return;
+            if(error.code.indexOf('TIMEDOUT')!=-1){
+                console.log('['+error.code+'] Retry deleteid2Server after '+again_time+' secs...');
+                retryNum++;
+                if(retryNum>limit_retry){
+                    retryNum=0;
+                    fin('error',id,error);
+                }
+                else{
+                    setTimeout(()=>{
+                        deleteid2Server(key,id_serverip,id_serverport,id,fin)
+                    },again_time*1000);
+                }
+            }
+            else{
+                console.log("deleteid2Server:"+error);
+                fin("error",id,error);
+            }
+
         }
-        if(body=="illegal request"){//url request error
+        else if(body=="illegal request"){//url request error
             console.log("deleteid2Server:"+body);
-            writeLog('['+id+'] body:'+body,'deleteid2Server error','append');
-            fin("error");
-            return;
+            fin("error",id,body);
         }
         else if(body==""){
-            body=0;
-            console.log("delete seed fail");
-            writeLog('['+id+'] body:id not exist','deleteid2Server error','append');
-            return;
+            console.log("delete seed fail/not exist");
+            //writeLog('['+id+'] body:id not exist','deleteid2Server error','append');
+            fin('none',id,body);
         }
         else{
-            fin("delete seed:"+body);
+            fin("delete",body,'');
         }
     });
 }
 
 exports.crawlerFB = crawlerFB;
 exports.updateid2Server = updateid2Server;
+exports.insertid2Server = insertid2Server;
 exports.deleteid2Server = deleteid2Server;
 
 function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
@@ -653,11 +618,13 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                     return;
                 }
                 else if(feeds['error']){
+                    let keyexpired_again_time = myModule.keyexpired_again_time;
                     if(feeds['error']['message']=="(#4) Application request limit reached"){
-                        console.log("Application request limit reached:"+graph_request+" Waitting for 3 hours...");
+                        console.log("Application request limit reached:"+graph_request+" Waitting for "+keyexpired_again_time+" secs...");
                         setTimeout(function(){
                             nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
-                        },10800*1000);
+                        },keyexpired_again_time*1000);
+                        graph_request=0;
                         return;
                     }
                     else if(feeds['error']['message']=="(#2) Service temporarily unavailable"){
@@ -790,15 +757,17 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                     else{
                         console.log("nextPage=>feeds['error']");
                         writeLog('['+groupid+'] error:feeds["error"]\nbody:'+body,'nextPage error','append');
-                        deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
-                            var now = new Date();
-                            var date = dateFormat(now, "yyyymmdd");
+                        deleteid2Server(key,id_serverip,id_serverport,groupid,function(st,back_id,err_msg){
                             if(st=="error"){
-                                writeLog('['+groupid+'] error:deleteid2Server error','nextPage error','append');
+                                writeLog('['+back_id+'] error:'+err_msg,'deleteid2Server error','append');
                                 fin("error:deleteid2Server");
                                 return;
                             }
+                            else if(st=='delete'){
+                                writeLog(back_id,'deleteID','append');
+                            }
                         });
+
                         if(feeds['error']['message'].indexOf("Unsupported")!=-1||feeds['error']['message'].indexOf("nonexisting field")!=-1){
                             fin("none");
                         }
@@ -806,14 +775,26 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                             var d_seed,n_seed;
                             d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;
                             n_seed = S(feeds['error']['message']).between('page ID ','.').s;
+
+                            let country = myModule.country_location;
+                            insertid2Server(key,id_serverip,id_serverport,n_seed,country,function(st,back_id,err_msg){
+                                if(st=="error"){
+                                    writeLog('['+back_id+'] error:'+err_msg,'insertid2Server error','append');
+                                    fin("error:insertid2Server");
+                                    return;
+                                }
+                            });
+                            /*
                             url_manager.deleteSeed(d_seed,function(stat){
                             });
+                            */
+                            /*
                             url_manager.insertSeed4filter("-1",n_seed,function(stat){
                                 if(stat!="old"){
                                     console.log(stat+":"+n_seed);
                                 }
                             });
-                            fin("none");
+                            */
                         }
                         else{
                             fin("error:"+feeds['error']['message']);
@@ -824,13 +805,13 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                 else if(typeof feeds['data']==="undefined"){
                     console.log("nextPage error =>feeds['data']");
                     writeLog('['+groupid+'] error:feeds["data"]\nbody:'+body,'nextPage error','append');
-                    deleteid2Server(key,id_serverip,id_serverport,groupid,function(st){
-                        var now = new Date();
-                        var date = dateFormat(now, "yyyymmdd");
+                    deleteid2Server(key,id_serverip,id_serverport,groupid,function(st,back_id,err_msg){
                         if(st=="error"){
-                            writeLog('['+groupid+'] error:deleteid2Server error','nextPage error','append');
+                            writeLog('['+back_id+'] error:'+err_msg,'deleteid2Server error','append');
                             fin("error:deleteid2Server");
-                            return;
+                        }
+                        else if(st=='delete'){
+                            writeLog(back_id,'deleteID','append');
                         }
                     });
                     fin("error:feeds['data']");
@@ -979,13 +960,26 @@ function writeLog(msg,type,opt)
 {
     var log = myModule.log;
     var err_filename = myModule.err_filename;
+    var delete_filename = myModule.delete_filename;
     var now = new Date();
     var logdate = dateFormat(now,'yyyymmdd');
     if(opt=='append'){
-        fs.appendFile(log+'/'+logdate+err_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        if(type=='deleteID'){
+            fs.appendFile(log+'/'+logdate+delete_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+        else{
+            fs.appendFile(log+'/'+logdate+err_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+
     }
     else if(opt=='write'){
-        fs.writeFile(log+'/'+logdate+err_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        if(type=='deleteID'){
+            fs.writeFile(log+'/'+logdate+delete_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+        else{
+            fs.writeFile(log+'/'+logdate+err_filename,'['+now+'] ['+type+'] '+msg+'\n--\n',()=>{});
+        }
+
     }
 }
 

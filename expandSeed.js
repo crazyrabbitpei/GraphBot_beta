@@ -135,7 +135,7 @@ function getSeed(groupid,token,fin){
                             console.log("Application request limit reached:"+graph_request);
                             writeLog(seed_log+'/'+country+'_'+err_filename,groupid,'append');
                         }
-                        else if(feeds['error']['message'].indexOf("(#100)")!=-1){//is User or is built with fb
+                        else if(feeds['error']['message'].indexOf("(#100)")!=-1){//is User or is built with fb, or is not fan page(may be applaction)
                             writeLog(seed_log+'/'+country+'_'+deleteID_filename,groupid,'append');
                         }
                         else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
@@ -233,7 +233,25 @@ function getSeed(groupid,token,fin){
                                         loca='Other';
                                     }
 
+
+                                    var info = feeds[page_name]['data'][i];
+                                    if(typeof info['insights']!=='undefined'){
+                                        if(typeof info['insights']['data'][0]['values'][info['insights']['data'][0]['values'].length-1]['value']!=='undefined'){
+
+                                            var value = parseInt(info['insights']['data'][0]['values'][info['insights']['data'][0]['values'].length-1]['value']['TW']);
+                                            if(typeof value!=='undefined'){
+                                                var total_likes=parseInt(info['likes']);
+                                                var percent = value/total_likes;
+                                                if(percent>0.5){
+                                                    loca='Taiwan';
+                                                }
+                                                
+                                            }
+                                        }
+                                    }
+
                                     recordNewSeeds(loca,real_loca,feeds[page_name]['data'][i]);
+
                                     count_seeds++;
                                     if(ids==""){
                                         ids += feeds[page_name]['data'][i]['id'];
@@ -276,7 +294,7 @@ function getSeed(groupid,token,fin){
                 }
                 else{
                     console.log('[getSeed]:'+response.statusCode);
-                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+response.statusCode+"\n--",'append');
+                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+JSON.stringify(response)+"\n--",'append');
                     fin('error');
                 }
             }
