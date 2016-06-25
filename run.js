@@ -23,20 +23,20 @@ exports.Bot_runStatus=Bot_runStatus;
 
 try {
     var service1 = JSON.parse(fs.readFileSync('./service/shadow'));
-    //var groupid = service1['id'];
     var version = service1['version'];
     var limit = service1['limit'];
     var fields = service1['fields'];
     var reduce_fields = service1['reduce_fields'];
-    var info = service1['info'];
+    var country_location = service1['country'];
+
     var dir = service1['dir'];
     var log = service1['log'];
     var crawled_filename = service1['crawled_filename'];
     var err_filename = service1['err_filename'];
     var delete_filename = service1['delete_filename'];
-    var country_location = service1['country'];
+
     var again_time = service1['again_time'];
-    var keyexpired_again_time = service1['keyexpired_again_time'];
+    var keylimit_reached_again_time = service1['keylimit_reached_again_time'];
     var grab_limit = service1['grab_limit'];
     var limit_retry = service1['limit_retry'];
 
@@ -70,13 +70,13 @@ try {
     exports.limit=limit;
     exports.fields=fields;
     exports.reduce_fields=reduce_fields;
-    exports.info=info;
+    exports.limit_retry=limit_retry;
     exports.dir=dir;
     exports.log=log;
     exports.err_filename=err_filename;
     exports.delete_filename=delete_filename;
     exports.again_time=again_time;
-    exports.keyexpired_again_time=keyexpired_again_time;
+    exports.keylimit_reached_again_time=keylimit_reached_again_time;
     exports.grab_limit=grab_limit;
     exports.country_location=country_location;
     
@@ -146,11 +146,12 @@ function setpromise(token){
         }
         else if(stat=='none'){
             success_url++;
+            console.log("success num:"+success_url);
             console.log('nothing to be crawled.');
             setpromise(token);          
         }
         else if(stat.indexOf('error')!=-1){
-            console.log("error occur:"+stat);
+            console.log("error occur see "+log+'/'+err_filename);
             process.exit();
         }
         else{
@@ -175,7 +176,7 @@ function start(token,fin){
             return;
         }
         else{
-            requireSeed(request_num,-1,function(result){
+            requireSeed(request_num,-1,function(stat,result,err_msg){
                 //console.log(result);
                 if(result=="none"){
                     //fs.appendFile(log+'/'+date+err_filename,"init=>requireSeed:has map is empty\n",function(){});
@@ -184,9 +185,10 @@ function start(token,fin){
                     fin(result);
                     return;
                 }
-                else if(result=="error"){
-                    console.log("requireSeed:error");
-                    fin(result);
+                else if(stat=="error"){
+                    console.log("requireSeed:"+err_msg);
+                    writeLog("[requireSeed] error:"+err_msg,"error","append");
+                    fin(stat);
                     return;
                 }
                 var fail=0;
@@ -230,13 +232,21 @@ function requireSeed(num,from_index,fin){
         timeout: 10000
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
-        if(error){
-            //fs.appendFile(log+'/'+date+err_filename,"requireSeed:"+error+"\n",function(){});
-            writeLog("[requireSeed] error:"+error,"error","append");
-            fin("error");
-            return;
+        if(!error&&response.statusCode==200){
+            fin('get',body,'');
         }
-        fin(body);
+        else{
+            if(error.code.indexOf('TIME')!=-1){
+                console.log('[requireSeed] '+error.code);
+                setTimeout(()=>{
+                     requireSeed(num,from_index,fin);
+                },again_time*60);
+            }
+            else{
+                fin('error','',error);
+            }
+
+        }
     });
 }
 

@@ -19,10 +19,9 @@ var retryNum = 0;
 
 function crawlerFB(limit,retryFields,token,groupid,key,fin){
     let version = myModule.version;
-    let limit_retry = myModule.limit_retry;
+    let limit_retry = parseInt(myModule.limit_retry);
     let reduce_fields = myModule.reduce_fields;
     let fields = myModule.fields;
-    let info = myModule.info;
     let dir = myModule.dir;
 
     let again_time = myModule.again_time;
@@ -38,10 +37,14 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
         let now = new Date();
         let date = dateFormat(now, "yyyymmdd");
         writeLog(groupid,'retry error','append');
-
         fin("none");
         return;
     }
+
+    if(retryFields!=''){
+        fields = retryFields;
+    }
+
     request({
         uri: "https://graph.facebook.com/"+version+"/"+groupid+"/feed?access_token="+token+"&limit="+limit+"&fields="+fields,
         timeout:30000
@@ -100,12 +103,12 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     return;
                 }
                 if(feeds['error']){
-                    let keyexpired_again_time = myModule.keyexpired_again_time;
+                    let keylimit_reached_again_time = myModule.keylimit_reached_again_time;
                     if(feeds['error']['message']=="(#4) Application request limit reached"){
-                        console.log("Application request limit reached:"+graph_request+" Waitting for "+keyexpired_again_time+" secs...");
+                        console.log("Application request limit reached:"+graph_request+" Waitting for "+keylimit_reached_again_time+" secs...");
                         setTimeout(function(){
                             crawlerFB(limit,retryFields,token,groupid,key,fin);
-                        },keyexpired_again_time*1000);
+                        },keylimit_reached_again_time*1000);
                         graph_request=0;
                         return;
                     }
@@ -114,10 +117,12 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         console.log('retryFields:'+retryFields);
                         retryNum++;
                         var reduce_amount = Math.round(limit/2);
-                        var limit_retry = myModule.limit_retry;
+                        var limit_retry = parseInt(myModule.limit_retry);
                         var reduce_fields = myModule.reduce_fields;
-                        console.log("reduce_amount:"+reduce_amount);
+                        console.log("reduce to:"+reduce_amount);
                         console.log("reduce_fields:"+reduce_fields);
+                        console.log('retryNum:'+retryNum);
+                        console.log('limit_retry:'+limit_retry);
                         
                         if(retryNum>limit_retry&&reduce_amount==1){
                             retryNum=0;
@@ -135,10 +140,12 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         console.log("["+groupid+"]Retry crawlerFB:unexpected/unknown:"+feeds['error']['message']);
                         retryNum++;
                         var reduce_amount = Math.round(limit/2);
-                        var limit_retry = myModule.limit_retry;
+                        var limit_retry = parseInt(myModule.limit_retry);
                         var reduce_fields = myModule.reduce_fields;
-                        console.log("reduce_amount:"+reduce_amount);
+                        console.log("reduce to:"+reduce_amount);
                         console.log("reduce_fields:"+reduce_fields);
+                        console.log('retryNum:'+retryNum);
+                        console.log('limit_retry:'+limit_retry);
                         
                         if(retryNum>limit_retry&&reduce_amount==1){
                             retryNum=0;
@@ -156,10 +163,13 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         retryNum++;
                         console.log("["+groupid+"]Retry crawlerFB:unknown:"+feeds['error']['message']);
                         var reduce_amount = Math.round(limit/2);
-                        var limit_retry = myModule.limit_retry;
+                        var limit_retry = parseInt(myModule.limit_retry);
                         var reduce_fields = myModule.reduce_fields;
-                        console.log("reduce_amount:"+reduce_amount);
+                        console.log("reduce to:"+reduce_amount);
                         console.log("reduce_fields:"+reduce_fields);
+                        console.log('retryNum:'+retryNum);
+                        console.log('limit_retry:'+limit_retry);
+
                         if(retryNum>limit_retry&&reduce_amount==1){
                             retryNum=0;
                             setTimeout(function(){
@@ -346,7 +356,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                                             var fields = myModule.fields;
                                             var reduce_fields = myModule.reduce_fields;
                                             var new_npage1="",new_npage2="",new_npage="";
-                                            console.log('old limit back:'+cut_npage[1]);
+
                                             if(typeof cut_npage[1]!=='undefined'){
                                                 new_npage1 = cut_npage[0]+'limit='+relimit+cut_npage[1];
                                             }
@@ -538,7 +548,7 @@ exports.deleteid2Server = deleteid2Server;
 function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin){
     let again_time = myModule.again_time;
     let version = myModule.version;
-    let limit_retry = myModule.limit_retry;
+    let limit_retry = parseInt(myModule.limit_retry);
     let dir = myModule.dir;
     let country = myModule.country_location;
     let depth = myModule.depth;
@@ -618,23 +628,23 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                     return;
                 }
                 else if(feeds['error']){
-                    let keyexpired_again_time = myModule.keyexpired_again_time;
+                    let keylimit_reached_again_time = myModule.keylimit_reached_again_time;
                     if(feeds['error']['message']=="(#4) Application request limit reached"){
-                        console.log("Application request limit reached:"+graph_request+" Waitting for "+keyexpired_again_time+" secs...");
+                        console.log("Application request limit reached:"+graph_request+" Waitting for "+keylimit_reached_again_time+" secs...");
                         setTimeout(function(){
                             nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,now_flag,fin)
-                        },keyexpired_again_time*1000);
+                        },keylimit_reached_again_time*1000);
                         graph_request=0;
                         return;
                     }
                     else if(feeds['error']['message']=="(#2) Service temporarily unavailable"){
                         var cut_npage=npage.split('limit='+limit);
                         var reduce_amount = Math.round(limit/2);
-                        var limit_retry = myModule.limit_retry;
+                        var limit_retry = parseInt(myModule.limit_retry);
                         var fields = myModule.fields;
                         var reduce_fields = myModule.reduce_fields;
                         var new_npage1="",new_npage2="",new_npage="";
-                        console.log('old limit back:'+cut_npage[1]);
+                        
                         if(typeof cut_npage[1]!=='undefined'){
                             new_npage = cut_npage[0]+'limit='+reduce_amount+cut_npage[1];
                         }
@@ -644,6 +654,8 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
 
                         console.log("Reduce to:"+reduce_amount);
                         console.log("reduce_fields:"+reduce_fields);
+                        console.log('retryNum:'+retryNum);
+                        console.log('limit_retry:'+limit_retry);
 
                         retryNum++;
                         if(retryNum>limit_retry&&reduce_amount==1){
@@ -672,11 +684,11 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                     else if(feeds['error']['message']=="An unexpected error has occurred. Please retry your request later."||feeds['error']['message'].indexOf("unknown error")!=-1){
                         var cut_npage=npage.split('limit='+limit);
                         var reduce_amount = Math.round(limit/2);
-                        var limit_retry = myModule.limit_retry;
+                        var limit_retry = parseInt(myModule.limit_retry);
                         var fields = myModule.fields;
                         var reduce_fields = myModule.reduce_fields;
                         var new_npage1="",new_npage2="",new_npage="";
-                        console.log('old limit back:'+cut_npage[1]);
+                        
                         if(typeof cut_npage[1]!=='undefined'){
                             new_npage = cut_npage[0]+'limit='+reduce_amount+cut_npage[1];
                         }
@@ -686,11 +698,12 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
 
                         console.log("Reduce to:"+reduce_amount);
                         console.log("reduce_fields:"+reduce_fields);
+                        console.log('retryNum:'+retryNum);
+                        console.log('limit_retry:'+limit_retry);
 
                         retryNum++;
                         if(retryNum>limit_retry&&reduce_amount==1){
                             new_npage2=new_npage.split('fields='+fields);
-                            console.log('old fields back:'+new_npage2[1]);
                             if(typeof new_npage2[1]!=='undefined'){
                                 new_npage = new_npage2[0]+'fields='+reduce_fields+new_npage2[1];
                             }
@@ -714,11 +727,10 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                     else if(feeds['error']['message'].indexOf("retry")!=-1){
                         var cut_npage=npage.split('limit='+limit);
                         var reduce_amount = Math.round(limit/2);
-                        var limit_retry = myModule.limit_retry;
+                        var limit_retry = parseInt(myModule.limit_retry);
                         var fields = myModule.fields;
                         var reduce_fields = myModule.reduce_fields;
                         var new_npage1="",new_npage2="",new_npage="";
-                        console.log('old limit back:'+cut_npage[1]);
                         if(typeof cut_npage[1]!=='undefined'){
                             new_npage = cut_npage[0]+'limit='+reduce_amount+cut_npage[1];
                         }
@@ -729,6 +741,8 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
 
                         console.log("Reduce to:"+reduce_amount);
                         console.log("reduce_fields:"+reduce_fields);
+                        console.log('retryNum:'+retryNum);
+                        console.log('limit_retry:'+limit_retry);
 
                         retryNum++;
                         if(retryNum>limit_retry&&reduce_amount==1){
@@ -845,7 +859,7 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                                     if(limit!=50){
                                         var cut_npage=feeds['paging'].next.split('limit='+limit);
                                         var relimit = myModule.limit;
-                                        var limit_retry = myModule.limit_retry;
+                                        var limit_retry = parseInt(myModule.limit_retry);
                                         var new_npage="";
                                         console.log('old limit back:'+cut_npage[1]);
                                         if(typeof cut_npage[1]!=='undefined'){
@@ -872,11 +886,10 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                         if(typeof feeds['paging'] !=="undefined"){
                             var cut_npage=feeds['paging'].next.split('limit='+limit);
                             var relimit = myModule.limit;
-                            var limit_retry = myModule.limit_retry;
+                            var limit_retry = parseInt(myModule.limit_retry);
                             var fields = myModule.fields;
                             var reduce_fields = myModule.reduce_fields;
                             var new_npage1="",new_npage2="",new_npage="";
-                            console.log('old limit back:'+cut_npage[1]);
                             if(typeof cut_npage[1]!=='undefined'){
                                 new_npage1 = cut_npage[0]+'limit='+relimit+cut_npage[1];
                             }

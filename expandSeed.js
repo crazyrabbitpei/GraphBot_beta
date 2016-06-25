@@ -28,6 +28,7 @@ var key = service1['crawlerkey'];
 var country = service1['country'];
 var require_num = service1['require_num'];
 var from_seedIndex = service1['from_seedIndex'];
+var to_seedIndex = service1['to_seedIndex'];
 var seed_require_Interval = service1['seed_require_Interval'];
 var old_seed_limit = service1['old_seed_limit'];
 var retryTime = service1['retryTime'];
@@ -40,22 +41,34 @@ var migratedID_filename = service1['migratedID_filename'];
 var seed_record = service1['seed_record'];
 var group_filename = service1['group_filename'];
 
-var jump_index=0;
+var jump_index=-1;
 var old_check=0;
 
 const myEmitter = new MyEmitter();
 myEmitter.on('requireSeed', () => {
-    if(jump_index==0){
-        jump_index=from_seedIndex+require_num;
+    if(from_seedIndex>0||typeof from_seedIndex==='undefined'){
+        if(jump_index==-1){
+            jump_index=from_seedIndex+require_num;
+        }
+        else{
+            jump_index=jump_index+require_num;
+        }
+    }
+    if(to_seedIndex>0){
+        if(jump_index<to_seedIndex){
+            setTimeout(()=>{
+                console.log('===jump_index:'+jump_index+'===');
+                requireSeed(require_num,jump_index);
+            },2*1000);
+        }
     }
     else{
-        jump_index=jump_index+require_num;
+        setTimeout(()=>{
+            console.log('===jump_index:'+jump_index+'===');
+            requireSeed(require_num,jump_index);
+        },2*1000);
     }
-    setTimeout(()=>{
-        console.log('===jump_index:'+jump_index+'===');
-        requireSeed(require_num,jump_index);
-    },2*1000);
-    //requireSeed(require_num,from_seedIndex);
+
 });
 
 requireSeed(require_num,from_seedIndex);
@@ -65,46 +78,77 @@ function requireSeed(num,from_index){
         uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seedbot/'+country+'/?num='+num+'&from='+from_index,
         timeout: 10000
     },function(error, response, body){
-        console.log("get expand:["+body+"]");
-        if(body=="none"){
-            console.log("[requireSeed=>hash map is empty]");
-            return;
-        }
-        else if(typeof body==="undefined"){
-            console.log("[requireSeed=>body=undefined]");
-            return;
-        }
-
-        getSeed(body,appid+"|"+yoyo,function(result){
-            if(result!="error"&&result!="none"){
-                insertSeed(result,function(stat){//error,old,full,{id1,ids2...}
-                    if(stat=='error'){
-                        console.log('error occur, see '+seed_log);           
-                    }
-                    else if(stat=='full'||stat=='stop'){
-                    
-                    }
-                    else if(stat=='old'){
-                        myEmitter.emit('requireSeed');       
-                    }
-                    else{
-                        console.log("insert seed:"+stat);
-                        myEmitter.emit('requireSeed');       
-                    }
-                });
+        if(!error&&response.statusCode==200){
+            console.log("get expand:["+body+"]");
+            if(body=="none"){
+                console.log("[requireSeed=>hash map is empty]");
+                return;
             }
-            else{
-                if(result=='none'){
-                    console.log('not have any seed in ['+body+']');
-                }
-                else if(result=='error'){
-                    console.log('error occur, see '+seed_log);           
+            else if(typeof body==="undefined"){
+                console.log("[requireSeed=>body=undefined]");
+                setTimeout(()=>{
+                    requireSeed(num,from_index);
+                },retryTime*1000);
+                return;
+            }
+
+            getSeed(body,appid+"|"+yoyo,function(result){
+                if(result!="error"&&result!="none"){
+                    insertSeed(result,function(stat){//error,old,full,{id1,ids2...}
+                        if(stat=='error'){
+                            console.log('error occur, see '+seed_log);           
+                        }
+                        else if(stat=='full'||stat=='stop'){
+
+                        }
+                        else if(stat=='old'){
+                            myEmitter.emit('requireSeed');       
+                        }
+                        else{
+                            console.log("insert seed:"+stat);
+                            myEmitter.emit('requireSeed');       
+                        }
+                    });
                 }
                 else{
-                    console.log('unknown error:'+result);
+                    if(result=='none'){
+                        console.log('not have any seed in ['+body+']');
+                    }
+                    else if(result=='error'){
+                        console.log('error occur, see '+seed_log);           
+                    }
+                    else{
+                        console.log('unknown error:'+result);
+                    }
+                }
+            });
+        }
+        else{
+            if(error){
+                console.log("error:"+error);
+                if(error.code.indexOf('TIMEDOUT')!=-1){
+                    setTimeout(function(){
+                        requireSeed(num,from_index);
+                    },timeout_retryTime*1000);
+                }
+                else{
+                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n[requireSeed] "+error+"\n--",'append');
                 }
             }
-        });
+            else{
+                if(response.statusCode>=500&&response.statusCode<600){
+                    console.log('retry [requireSeed]:'+response.statusCode);
+                    setTimeout(()=>{
+                        requireSeed(num,from_index);
+                    },retryTime*1000);
+                }
+                else{
+                    console.log('[requireSeed]:'+response.statusCode);
+                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n[requireSeed] "+JSON.stringify(response)+"\n--",'append');
+                }
+            }
+        }
+
     });
 }
 function getSeed(groupid,token,fin){
@@ -275,13 +319,13 @@ function getSeed(groupid,token,fin){
         else{
             if(error){
                 console.log("error:"+error);
-                writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+error+"\n--",'append');
                 if(error.code.indexOf('TIMEDOUT')!=-1){
                     setTimeout(function(){
                         getSeed(groupid,token,fin);
                     },timeout_retryTime*1000);
                 }
                 else{
+                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+error+"\n--",'append');
                     fin('error');
                 }
             }
@@ -330,11 +374,13 @@ function updateidServer(ids,mark)
         else{
             if(error){
                 console.log("error:"+error);
-                writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] updateidServer:"+error+"\n--",'append');
                 if(error.code.indexOf('TIMEDOUT')!=-1){
                     setTimeout(function(){
                         updateidServer(ids,mark);
                     },timeout_retryTime*1000);
+                }
+                else{
+                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] updateidServer:"+error+"\n--",'append');
                 }
             }
             else{
@@ -386,7 +432,7 @@ function insertSeed(ids,fin){
             }
             else{
                 var parts=body.split(',');
-                var seeds_len = parts.length-1;
+                var seeds_len = parts.length;
                 console.log('--Success insert seeds:'+seeds_len);
                 fin(body);
             }
@@ -394,13 +440,14 @@ function insertSeed(ids,fin){
         else{
             if(error){
                 console.log("error:"+error);
-                writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+error+"\n--",'append');
+
                 if(error.code.indexOf('TIMEDOUT')!=-1){
                     setTimeout(function(){
                         insertSeed(ids,fin);
                     },timeout_retryTime*1000);
                 }
                 else{
+                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+error+"\n--",'append');
                     fin('error');
                 }
             }
@@ -449,13 +496,14 @@ function deleteSeed(ids,fin){
         else{
             if(error){
                 console.log("error:"+error);
-                writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+error+"\n--",'append');
+
                 if(error.code.indexOf('TIMEDOUT')!=-1){
                     setTimeout(function(){
                         deleteSeed(ids,fin);
                     },timeout_retryTime*1000);
                 }
                 else{
+                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+error+"\n--",'append');
                     fin('error');
                 }
             }
@@ -575,11 +623,14 @@ function recordNewSeeds(loca,real_loca,info){
         else{
             if(error){
                 console.log("error:"+error);
-                writeLog(seed_log+'/'+loca+'_'+err_filename,"--\n["+id+"] recordNewSeeds:"+error+"\n--",'append');
+
                 if(error.code.indexOf('TIMEDOUT')!=-1){
                     setTimeout(function(){
                         recordNewSeeds(loca,real_loca,info);
                     },timeout_retryTime*1000);
+                }
+                else{
+                    writeLog(seed_log+'/'+loca+'_'+err_filename,"--\n["+id+"] recordNewSeeds:"+error+"\n--",'append');
                 }
             }
             else{
