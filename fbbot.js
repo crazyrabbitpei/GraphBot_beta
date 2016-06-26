@@ -420,6 +420,7 @@ function updateid2Server(key,id_serverip,id_serverport,country,id,time,fin)
         if(error){
             if(error.code.indexOf('TIMEDOUT')!=-1){
                 console.log('['+error.code+'] Retry updateid2Server after '+again_time+' secs...');
+                var  limit_retry = parseInt(myModule.limit_retry);
                 retryNum++;
                 if(retryNum>limit_retry){
                     retryNum=0;
@@ -461,6 +462,7 @@ function insertid2Server(key,id_serverip,id_serverport,id,loca,fin){
         if(error){
             if(error.code.indexOf('TIMEDOUT')!=-1){
                 console.log('['+error.code+'] Retry insertid2Server after '+again_time+' secs...');
+                var  limit_retry = parseInt(myModule.limit_retry);
                 retryNum++;
                 if(retryNum>limit_retry){
                     retryNum=0;
@@ -508,6 +510,7 @@ function deleteid2Server(key,id_serverip,id_serverport,id,fin){
         if(error){
             if(error.code.indexOf('TIMEDOUT')!=-1){
                 console.log('['+error.code+'] Retry deleteid2Server after '+again_time+' secs...');
+                var  limit_retry = parseInt(myModule.limit_retry);
                 retryNum++;
                 if(retryNum>limit_retry){
                     retryNum=0;

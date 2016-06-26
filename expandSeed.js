@@ -61,6 +61,9 @@ myEmitter.on('requireSeed', () => {
                 requireSeed(require_num,jump_index);
             },2*1000);
         }
+        else{
+            console.log('--seed bot end--');
+        }
     }
     else{
         setTimeout(()=>{
@@ -96,7 +99,7 @@ function requireSeed(num,from_index){
                 if(result!="error"&&result!="none"){
                     insertSeed(result,function(stat){//error,old,full,{id1,ids2...}
                         if(stat=='error'){
-                            console.log('error occur, see '+seed_log);           
+                            console.log('[getSeed] error occur, see '+seed_log);           
                         }
                         else if(stat=='full'||stat=='stop'){
 
@@ -115,7 +118,7 @@ function requireSeed(num,from_index){
                         console.log('not have any seed in ['+body+']');
                     }
                     else if(result=='error'){
-                        console.log('error occur, see '+seed_log);           
+                        console.log('[getSeed] error occur, see '+seed_log);           
                     }
                     else{
                         console.log('unknown error:'+result);
@@ -156,9 +159,9 @@ function getSeed(groupid,token,fin){
         uri:"https://graph.facebook.com/"+version+"/likes/?ids="+groupid+"&access_token="+token+"&fields="+fields,
         timeout: 10000
     },function(error, response, body){
+        var err_flag=0;
+        var err_msg="";
         if(!error&&response.statusCode==200){
-            var err_flag=0;
-            var err_msg="";
             try{
                 var feeds = JSON.parse(body);
             }
@@ -173,6 +176,7 @@ function getSeed(groupid,token,fin){
                     fin("error");
                 }
                 else{
+                    /*
                     if(feeds['error']){
                         console.log("getSeed error:"+feeds['error']['message']);
                         if(feeds['error']['message']=="(#4) Application request limit reached"){
@@ -187,7 +191,7 @@ function getSeed(groupid,token,fin){
                             var d_seed,n_seed;
                             d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;
                             n_seed = S(feeds['error']['message']).between('page ID ','.').s;
-                            deleteSeed(d_seed,function(stat){                                            
+                            deleteSeed(d_seed,function(stat){
                             });                                                                         
                             insertSeed(n_seed,function(stat){//error,old,full,{id1,ids2...}
                                 if(stat=='error'){
@@ -204,9 +208,13 @@ function getSeed(groupid,token,fin){
                                 }
                             });
                         }
+                        else{
+                            writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+feeds['error']['message']+"\n--",'append');
+                        }
                         fin("error");
                     }
-                    else{
+                    */
+                    //else{
                         var count_seeds=0;
                         updateidServer(groupid,"c");
                         var len = Object.keys(feeds).length;
@@ -310,7 +318,7 @@ function getSeed(groupid,token,fin){
                             }
 
                         }
-                    }
+                    //}
                     console.log('--Fecth expand seeds:'+count_seeds+'--');
                     fin(ids);
                 }
@@ -337,9 +345,73 @@ function getSeed(groupid,token,fin){
                     },retryTime*1000);
                 }
                 else{
-                    console.log('[getSeed]:'+response.statusCode);
-                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+JSON.stringify(response)+"\n--",'append');
-                    fin('error');
+                    if(typeof body!=='undefined'){
+                        try{
+                            var feeds = JSON.parse(body);
+                        }
+                        catch(e){
+                            err_flag=1;
+                            err_msg=e;
+                        }
+                        finally{
+                            if(err_flag==1){
+                                console.log("getSeed:"+err_msg);
+                                writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+err_msg+"\n--",'append');
+                                fin("error");
+                            }
+                            else{
+                                console.log("getSeed error:"+feeds['error']['message']);
+                                if(feeds['error']['message']=="(#4) Application request limit reached"){
+                                    console.log("Application request limit reached:"+graph_request);
+                                    writeLog(seed_log+'/'+country+'_'+err_filename,groupid,'append');
+                                    fin("error");
+                                }
+                                else if(feeds['error']['message'].indexOf("(#100)")!=-1){//is User or is built with fb, or is not fan page(may be applaction)
+                                    writeLog(seed_log+'/'+country+'_'+deleteID_filename,groupid,'append');
+                                    fin("error");
+                                }
+                                else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
+                                    writeLog(seed_log+'/'+country+'_'+migratedID_filename,feeds['error']['message'],'append');
+                                    var d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;
+                                    var n_seed = S(feeds['error']['message']).between('page ID ','.').s;
+                                    var new_groupid = groupid.replace(d_seed,n_seed);
+                                    getSeed(new_groupid,token,fin);
+
+                                    deleteSeed(d_seed,function(stat){
+                                        if(stat='error'){
+                                            fin("error");
+                                        }
+                                    });                                                                         
+                                    insertSeed(n_seed,function(stat){//error,old,full,{id1,ids2...}
+                                        if(stat=='error'){
+                                            console.log('[insertSeed] error occur, see '+seed_log);           
+                                            fin("error");
+                                        }
+                                        else if(stat=='full'){
+                                            fin("error");
+                                        }
+                                        else if(stat=='old'){
+                                        }
+                                        else{
+                                            console.log("insert seed:"+stat);
+                                        }
+                                    });
+
+                                }
+                                else{
+                                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+feeds['error']['message']+"\n--",'append');
+                                    fin("error");
+                                }
+
+                            }
+                        }
+
+                    }
+                    else{
+                        console.log('[getSeed]:'+response.statusCode);
+                        writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+JSON.stringify(response)+"\n--",'append');
+                        fin('error');
+                    }
                 }
             }
         }
@@ -440,7 +512,6 @@ function insertSeed(ids,fin){
         else{
             if(error){
                 console.log("error:"+error);
-
                 if(error.code.indexOf('TIMEDOUT')!=-1){
                     setTimeout(function(){
                         insertSeed(ids,fin);
