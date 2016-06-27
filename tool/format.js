@@ -5,32 +5,32 @@ var dateFormat = require('dateformat');
 var request = require('request');
 var fs = require('graceful-fs');
 
-function storeinfo(groupid,key,now_flag,end_flag,id_serverip,id_serverport,feeds,fin){
+function storeinfo(groupid,key,end_flag,id_serverip,id_serverport,feeds,fin){
     var now = new Date();
     var date = dateFormat(now, "yyyymmdd_HHMM");
     var title,source,url,time,body,message_tag="",description="";
     var result="";
     var i=0,j=0;
     while(i<feeds.length){
-	description="";
-	body="";
-        //time compare
         //console.log("["+i+"]created_time:"+feeds[i]["created_time"]+" end_flag:"+end_flag);
-        if(feeds[i]["created_time"]<=end_flag && end_flag!=0){
-            console.log("["+feeds[i]["id"]+"]created_time:"+feeds[i]["created_time"]+" end_flag:"+end_flag);
-            console.log("=>end");
-            fin("endTONext@Gais:"+feeds[i]["id"]+"endTONext@Gais:"+result);
-            return ;
+        description="";
+        body="";
+        if(end_flag!='y'&&end_flag!='c'){
+            if(new Date(feeds[i]["created_time"]).getTime()<=new Date(end_flag).getTime()){
+                console.log("["+feeds[i]["id"]+"]created_time:"+feeds[i]["created_time"]+" end_flag:"+end_flag);
+                console.log("=>end");
+                fin("endTONext@Gais:"+feeds[i]["id"]+"endTONext@Gais:"+result);
+                break;
+            }
         }
-        //console.log("=>pass");
-	if(feeds[i]["from"]){
-        	title = feeds[i]["from"].name;
-        	source = "fb/"+feeds[i]["from"].name;
-	}
-	else{
-		title = feeds[i]["id"];
-        	source = "fb/"+feeds[i]["id"];
-	}
+        if(feeds[i]["from"]){
+            title = feeds[i]["from"].name;
+            source = "fb/"+feeds[i]["from"].name;
+        }
+        else{
+            title = feeds[i]["id"];
+            source = "fb/"+feeds[i]["id"];
+        }
         if(!feeds[i]["link"]){
             body="";
         }
@@ -42,6 +42,7 @@ function storeinfo(groupid,key,now_flag,end_flag,id_serverip,id_serverport,feeds
 
         }
         url = feeds[i]["id"];
+        //url = 'https://www.facebook.com/'feeds[i]["id"];
         time = feeds[i]["created_time"];
         if(feeds[i]["message"]){
             body += "\n"+feeds[i]["message"];
@@ -61,35 +62,8 @@ function storeinfo(groupid,key,now_flag,end_flag,id_serverip,id_serverport,feeds
         result += "@time:"+time+"\n";
         result += "@body:"+body+"\n";
         result += "@description:"+description+"\n";
-
-        //all feeds are came from api request, not from the post
-        /*
-        if(feeds[i]["message_tags"]){
-            message_len = feeds[i]["message_tags"].length;
-            message_tag="";
-            for(j=0;j<message_len;j++){
-                checkType(feeds[i]["message_tags"][j]["type"],function(status){
-                    if(status=="ok"){
-                    
-                    }
-                    else{
-                        
-                    }
-                });
-                if(j!=0){
-                    message_tag += "\n"+feeds[i]["message_tags"][j]["id"]+",y";
-                }
-                else{
-                    message_tag = feeds[i]["message_tags"][j]["id"]+",y";
-                }
-                //console.log("i="+i+" message_len:"+message_len+" message_tag:"+message_tag);
-            }
-            //result +="\n@tag:"+message_tag;
-        }
-        */
         i++;
     }
-    //fin("continue:"+feeds[i-1]["id"]);
     fin("continueTONext@Gais:"+result);
 }
 exports.storeinfo = storeinfo;

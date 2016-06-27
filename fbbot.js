@@ -4,6 +4,7 @@ var http = require('http');
 var fs = require('graceful-fs');
 var iconv = require('iconv-lite');
 var cheerio = require("cheerio");
+var querystring = require("querystring");
 var S = require('string');
 var he = require('he');
 var punycode = require('punycode');
@@ -17,7 +18,7 @@ var records_num=0;
 
 var retryNum = 0;
 
-function crawlerFB(limit,retryFields,token,groupid,key,fin){
+function crawlerFB(limit,retryFields,token,groupid,timestamp,key,fin){
     let version = myModule.version;
     let limit_retry = parseInt(myModule.limit_retry);
     let reduce_fields = myModule.reduce_fields;
@@ -31,6 +32,11 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
     let yoyo = myModule.yoyo;
     let id_serverip = myModule.id_serverip;
     let id_serverport = myModule.id_serverport;
+
+    if(limit==limit_retry){
+        retryNum=0;
+    }
+
     graph_request++;
     if(retryNum>limit_retry){
         retryNum=0;
@@ -57,7 +63,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                 retryNum++;
                 setTimeout(function(){
                     console.log("["+retryNum+"]["+groupid+"]Retry crawlerFB:"+error.code);
-                    crawlerFB(limit,retryFields,token,groupid,key,fin);
+                    crawlerFB(limit,retryFields,token,groupid,timestamp,key,fin);
                 },again_time*1000);//1 minutes
             }
             else{
@@ -73,7 +79,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     setTimeout(function(){
                         console.log("["+retryNum+"]["+groupid+"]Retry crawlerFB:body===undefined");
                         console.log("1.");
-                        crawlerFB(limit,retryFields,token,groupid,key,fin);
+                        crawlerFB(limit,retryFields,token,groupid,timestamp,key,fin);
                     },again_time*1000);
                     return;
                 }
@@ -88,7 +94,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                 setTimeout(function(){
                     console.log("["+retryNum+"]["+groupid+"]Retry crawlerFB:body===err html");
                     console.log("1.");
-                    crawlerFB(limit,retryFields,token,groupid,key,fin);
+                    crawlerFB(limit,retryFields,token,groupid,timestamp,key,fin);
                 },again_time*1000);
                 return;
             }
@@ -98,7 +104,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     setTimeout(function(){
                         console.log("["+retryNum+"]["+groupid+"]Retry crawlerFB:feeds===undefined");
                         console.log("2.");
-                        crawlerFB(limit,retryFields,token,groupid,key,fin);
+                        crawlerFB(limit,retryFields,token,groupid,timestamp,key,fin);
                     },again_time*1000);
                     return;
                 }
@@ -107,7 +113,7 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     if(feeds['error']['message']=="(#4) Application request limit reached"){
                         console.log("Application request limit reached:"+graph_request+" Waitting for "+keylimit_reached_again_time+" secs...");
                         setTimeout(function(){
-                            crawlerFB(limit,retryFields,token,groupid,key,fin);
+                            crawlerFB(limit,retryFields,token,groupid,timestamp,key,fin);
                         },keylimit_reached_again_time*1000);
                         graph_request=0;
                         return;
@@ -127,12 +133,12 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         if(retryNum>limit_retry&&reduce_amount==1){
                             retryNum=0;
                             setTimeout(function(){
-                                crawlerFB(reduce_amount,reduce_fields,token,groupid,key,fin);
+                                crawlerFB(reduce_amount,reduce_fields,token,groupid,timestamp,key,fin);
                             },again_time*1000);
                         }
                         else{
                             setTimeout(function(){
-                                crawlerFB(reduce_amount,retryFields,token,groupid,key,fin);
+                                crawlerFB(reduce_amount,retryFields,token,groupid,timestamp,key,fin);
                             },again_time*1000);
                         }
                     }
@@ -150,12 +156,12 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         if(retryNum>limit_retry&&reduce_amount==1){
                             retryNum=0;
                             setTimeout(function(){
-                                crawlerFB(reduce_amount,reduce_fields,token,groupid,key,fin);
+                                crawlerFB(reduce_amount,reduce_fields,token,groupid,timestamp,key,fin);
                             },again_time*1000);
                         }
                         else{
                             setTimeout(function(){
-                                crawlerFB(reduce_amount,retryFields,token,groupid,key,fin);
+                                crawlerFB(reduce_amount,retryFields,token,groupid,timestamp,key,fin);
                             },again_time*1000);
                         }
                     }
@@ -173,17 +179,18 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         if(retryNum>limit_retry&&reduce_amount==1){
                             retryNum=0;
                             setTimeout(function(){
-                                crawlerFB(reduce_amount,reduce_fields,token,groupid,key,fin);
+                                crawlerFB(reduce_amount,reduce_fields,token,groupid,timestamp,key,fin);
                             },again_time*1000);
                         }
                         else{
                             setTimeout(function(){
-                                crawlerFB(reduce_amount,retryFields,token,groupid,key,fin);
+                                crawlerFB(reduce_amount,retryFields,token,groupid,timestamp,key,fin);
                             },again_time*1000);
                         }
                     }
                     else{
                         console.log("crawlerFB=>feeds['error']");
+                        console.log('err:'+body);
                         writeLog('['+groupid+'] error:feeds["error"]\nbody:'+body,'crawlerFB error','append');
                         deleteid2Server(key,id_serverip,id_serverport,groupid,function(st,back_id,err_msg){
                             if(st=="error"){
@@ -210,17 +217,6 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                                     return;
                                 }
                             });
-                            /*
-                            url_manager.deleteSeed(d_seed,function(stat){
-                            });
-                            */
-                            /*
-                            url_manager.insertSeed4filter("-1",n_seed,function(stat){
-                                if(stat!="old"){
-                                    console.log(stat+":"+n_seed);
-                                }
-                            });
-                            */
                         }
                         else{
                             fin("error:"+feeds['error']['message']);
@@ -253,15 +249,11 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                         fin("error:feeds['data'][0] === 'undefined'");
                         return;
                     }
-                    isCrawled(key,id_serverip,id_serverport,country,feeds["data"][0]["created_time"],groupid,function(status,last_time,now_time){
+                    isCrawled(key,id_serverip,id_serverport,country,feeds["data"][0]["created_time"],groupid,timestamp,function(status,last_time,now_time,back_id,err_msg){
                         let now = new Date();
                         let date = dateFormat(now, "yyyymmdd");
-                        if(status=="error"){
-                            writeLog('['+groupid+'] error:isCrawled error','crawlerFB error','append');
-                            fin("error:isCrawled");
-                            return;
-                        }
-                        else if(status=="yes"){//has isCrawled, and no new post
+                        if(status=="yes"){//has isCrawled, and no new post
+                            /*
                             updateid2Server(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["created_time"],function(st,back_id,err_msg){
                                 if(st=="error"){
                                     writeLog('['+back_id+'] error:'+err_msg,'updateid2Server error','append');
@@ -272,20 +264,23 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                                 }
                                 return;
                             });
+                            */
                         }
                         else if(status=="no"){
-                            updateid2Server(key,id_serverip,id_serverport,country,groupid,feeds["data"][0]["created_time"],function(st,back_id,err_msg){
+                            updateid2Server(key,id_serverip,id_serverport,country,groupid,now_time,function(st,back_id,err_msg){
                                 if(st=="error"){
                                     writeLog('['+back_id+'] error:'+err_msg,'updateid2Server error','append');
                                     fin("error:updateid2Server");
                                     return;
                                 }
-                                if(last_time!=0){
+                                /*
+                                if(last_time!=''){
                                     var parts = last_time.split(" ");
                                     last_time = parts[0]+"+"+parts[1];
                                 }
+                                */
                                 if(retryFields==''){
-                                    storeinfo.storeinfo(groupid,key,now_time,last_time,id_serverip,id_serverport,feeds["data"],function(result){
+                                    storeinfo.storeinfo(groupid,key,last_time,id_serverip,id_serverport,feeds["data"],function(result){
                                         if(result.indexOf('endTONext@Gais:')!=-1){
                                             let temp_result = result.split("endTONext@Gais:");
                                             if(temp_result[2]!=""){
@@ -386,6 +381,8 @@ function crawlerFB(limit,retryFields,token,groupid,key,fin){
                     });
                 }
                 else{
+                    let now = new Date();
+                    let date = dateFormat(now, "yyyy-mm-dd'T'HH:MM:SS");
                     updateid2Server(key,id_serverip,id_serverport,country,groupid,date,function(st,back_id,err_msg){
                         if(st=="error"){
                             writeLog('['+back_id+'] error:'+err_msg,'updateid2Server error','append');
@@ -794,6 +791,15 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                             n_seed = S(feeds['error']['message']).between('page ID ','.').s;
 
                             let country = myModule.country_location;
+                            deleteid2Server(key,id_serverip,id_serverport,d_seed,function(st,back_id,err_msg){
+                                if(st=="error"){
+                                    writeLog('['+back_id+'] error:'+err_msg,'deleteid2Server error','append');
+                                    fin("error:deleteid2Server");
+                                }
+                                else if(st=='delete'){
+                                    writeLog(back_id,'deleteID','append');
+                                }
+                            });
                             insertid2Server(key,id_serverip,id_serverport,n_seed,country,function(st,back_id,err_msg){
                                 if(st=="error"){
                                     writeLog('['+back_id+'] error:'+err_msg,'insertid2Server error','append');
@@ -841,7 +847,7 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                     var now = new Date();
                     var date = dateFormat(now, "yyyymmdd");
                     if(retryFields==''){
-                        storeinfo.storeinfo(groupid,key,now_flag,end_flag,id_serverip,id_serverport,feeds["data"],function(result){
+                        storeinfo.storeinfo(groupid,key,end_flag,id_serverip,id_serverport,feeds["data"],function(result){
                             var now = new Date();
                             var date = dateFormat(now, "yyyymmdd");
                             if(result.indexOf('endTONext@Gais:')!=-1){
@@ -930,30 +936,46 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
     });
 }
 
-function isCrawled(key,id_serverip,id_serverport,country,time,id,fin){
-    let dir = myModule.dir;
-    let again_time = myModule.again_time;
-    //console.log('http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/search/'+id+'/');
+function isCrawled(key,id_serverip,id_serverport,country,time,id,timestamp,fin){
+    //console.log("old time:"+timestamp+" update time:"+time);
+    if(timestamp=="y"||timestamp=="c"){//first crawled
+        console.log("["+id+"] has new post:"+time);
+        fin("no",timestamp,time,id,'');
+    }
+    else if(new Date(timestamp).getTime()<new Date(time).getTime()){
+        console.log("["+id+"] has new post:"+time);
+        fin("no",timestamp,time,id,'');
+    }
+
+    else if(new Date(timestamp).getTime()>=new Date(time).getTime()){
+        console.log("["+id+"] no new");
+        fin("yes",timestamp,time,id,'');
+    }
+    /*
     request({
         uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/databot/search/'+country+'?ids='+id,
         timeout:10000
     },function(error, response, body){
         var again_time = myModule.again_time;
+        var err_msg='';
         var now = new Date();
         var date = dateFormat(now, "yyyymmdd");
         if(error){
-            console.log("bot can't link to manager:"+error);
-            //fin("error",0,0);
-            setTimeout(function(){
-                console.log("["+id+"]Retry isCrawled:myserver");
-                isCrawled(key,id_serverip,id_serverport,country,time,id,fin);
-            },again_time*1000);
-            return;
+            if(error.code.indexOf('TIMEDOUT')!=-1){
+                console.log("["+error.code+"] Retry isCrawled after "+again_time+' secs...');
+                setTimeout(function(){
+                    console.log("["+id+"]Retry isCrawled:myserver");
+                    isCrawled(key,id_serverip,id_serverport,country,time,id,fin);
+                },again_time*1000);
+            }
+            else{
+                err_msg=error;
+
+                fin('error','','',id,err_msg);       
+            }
         }
         else if(body=="illegal request"){//url request error
-            console.log("bot can't link to manager");
-            fin("error",0,0);
-            return;
+            fin("error",'','',id,body);
         }
         else if(body=="y"||body=="c"){//first crawled
             body=0;
@@ -963,13 +985,14 @@ function isCrawled(key,id_serverip,id_serverport,country,time,id,fin){
         //console.log("old time:"+body+" update time:"+time);
         if(body==time){
             console.log("["+id+"] no new");
-            fin("yes",0,0);
+            fin("yes",'','',id,'');
         }
         else{
             console.log("["+id+"] has new post:"+time);
-            fin("no",body,time);
+            fin("no",body,time,id,'');
         }
     });
+    */
 }
 
 function writeLog(msg,type,opt)

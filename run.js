@@ -134,21 +134,38 @@ function setpromise(token){
             if(crawled_id!="crawled"){
                 writeLog("total nums:"+records_num+"\nstart:"+date_start+"\nend:"+date_end+"\n"+crawled_id,'crawler','append');
             }
-            if(success_url<grab_limit){
-                setpromise(token);          
+
+            if(grab_limit>0){
+                if(success_url<grab_limit){
+                    setpromise(token);          
+                }
+                else{
+                    console.log("Finish:"+success_url);
+                    success_url=0;
+                }
             }
             else{
-                console.log("Finish:"+success_url);
-                success_url=0;
                 setpromise(token);          
-                //process.exit();
             }
+
         }
         else if(stat=='none'){
             success_url++;
             console.log("success num:"+success_url);
             console.log('nothing to be crawled.');
-            setpromise(token);          
+
+            if(grab_limit>0){
+                if(success_url<grab_limit){
+                    setpromise(token);          
+                }
+                else{
+                    console.log("Finish:"+success_url);
+                    success_url=0;
+                }
+            }
+            else{
+                setpromise(token);          
+            }
         }
         else if(stat.indexOf('error')!=-1){
             console.log("error occur see "+log+'/'+err_filename);
@@ -178,11 +195,8 @@ function start(token,fin){
         else{
             requireSeed(request_num,-1,function(stat,result,err_msg){
                 //console.log(result);
-                if(result=="none"){
-                    //fs.appendFile(log+'/'+date+err_filename,"init=>requireSeed:has map is empty\n",function(){});
-                    writeLog('[start] error:init=>requireSeed:has map is empty','error','append');
-                    console.log("init=>requireSeed:has map is empty");
-                    fin(result);
+                if(stat=="none"){
+                    fin(stat);
                     return;
                 }
                 else if(stat=="error"){
@@ -193,31 +207,38 @@ function start(token,fin){
                 }
                 var fail=0;
                 var seeds = result.split(",");
+                var seed_id='';
+                var id_time='';
                 var i;
                 for(i=0;i<seeds.length;i++){
                     console.log(seeds[i]);
                     if(seeds[i]==""||typeof seeds[i]==="undefined"){
                         continue;
                     }
-                    try{
-                        fs.accessSync(dir+'/'+country_location+'/'+seeds[i],fs.F_OK);
-                    }
-                    catch(e){
-                        //console.log(e);
-                        fail=1;
-                    }
-                    finally{
-                        if(fail==0){
-                            //console.log("file exist:"+seeds[i]);
+                    else{
+                        id_time=seeds[i].split(':')[1];
+                        seed_id=seeds[i].split(':')[0];
+                        try{
+                            fs.accessSync(dir+'/'+country_location+'/'+seed_id,fs.F_OK);
                         }
-                        else{
-                            fs.mkdir(dir+'/'+country_location+'/'+seeds[i]);
-                            //console.log("file create:"+seeds[i]);
+                        catch(e){
+                            fail=1;
                         }
-                        setBot(key,seeds[i],token,function(bot_result){
-                            fin(bot_result);
-                        });
+                        finally{
+                            if(fail==0){
+                                //console.log("file exist:"+seeds[i]);
+                            }
+                            else{
+                                fs.mkdir(dir+'/'+country_location+'/'+seed_id);
+                                //console.log("file create:"+seeds[i]);
+                            }
+                            setBot(key,seed_id,id_time,token,function(bot_result){
+                                fin(bot_result);
+                            });
+                        }
+
                     }
+
 
                 }
             });
@@ -233,7 +254,19 @@ function requireSeed(num,from_index,fin){
     },function(error, response, body){
         //console.log("get seed:["+body+"]");
         if(!error&&response.statusCode==200){
-            fin('get',body,'');
+            if(body=="illegal request"){
+                fin('error','',body);
+            }
+            else{
+                if(body=='none:none'){
+                    writeLog('[start] error:init=>requireSeed:has map is empty','error','append');
+                    console.log("init=>requireSeed:has map is empty");
+                    fin('none',body,'');
+                }
+                else{
+                    fin('get',body,'');
+                }
+            }
         }
         else{
             if(error.code.indexOf('TIME')!=-1){
@@ -295,10 +328,10 @@ function get_accessToken(fin){
 
 }
 
-function setBot(botkey,groupid,token,fin){
-    console.log("--\ngo groupid:"+groupid);
+function setBot(botkey,groupid,timestamp,token,fin){
+    console.log("--\ngo groupid:"+groupid+':'+timestamp);
     try{
-        fbBot.crawlerFB(limit,'',token,groupid,botkey,function(result){
+        fbBot.crawlerFB(limit,'',token,groupid,timestamp,botkey,function(result){
             current_url++;
             console.log("current num:"+current_url);
             if(result=="error"){
