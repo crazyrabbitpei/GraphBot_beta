@@ -6,6 +6,7 @@ var iconv = require('iconv-lite');
 var querystring = require("querystring");
 var fs = require('graceful-fs');
 var S = require('string');
+var dateFormat = require('dateformat');
 
 var request = require('request');
 var CronJob = require('cron').CronJob;
@@ -32,17 +33,30 @@ app.use(bodyParser.urlencoded({
 }));
 //--read setting--url manager
 var service = JSON.parse(fs.readFileSync('./service/url_manager'));
+var manager_key = service['manager_key'];
 var apiip = service['id_serverip'];
 var apiport = service['id_serverport'];
+var server_name = service['server_name'];
+var server_version = service['server_name'];
+
+var id_record = service['id_record'];
 var writeidInterval = service['writeidInterval'];
 var filename = service['idmanage_filename'];
 var foreign_filename = service['foreign_idmanage_filename'];
 var url_mapSize = service['size'];
-var tw_address_filename = service['tw_address'];
+
+var expire_log = service['expire_log'];
 var detectInterval =  service['detectInterval'];
 var expire_time =  service['expire_time'];
 var expire_filename = service['expire_filename'];
-var url_manager_log_filename = service['url_manager_log_filename'];
+
+var url_manager_log = service['url_manager_log'];
+var err_filename= service['err_filename'];
+var log_filename = service['log_filename'];
+
+var dictionary = service['dictionary'];
+var tw_address_filename = service['tw_address'];
+
 var map_size=0;//update with url map(cronjob), using clearID function
 var foreign_map_size=0;//update with url map(cronjob), using clearID function
 
@@ -59,7 +73,6 @@ var foreign_from_data_idIndex=0;
 ReadTWaddress();
 ReadID();
 ReadForeignID();
-ReadBotID();
 
 var job = new CronJob({
     cronTime:writeidInterval,
@@ -85,9 +98,9 @@ trace_seed.start();
 //--server process--
 process.on('uncaughtException',(err)=>{
     console.log("[start] writing...");
-    fs.writeFile(url_manager_log_filename,err,function(err){
+    fs.appendFile(url_manager_log+'/'+err_filename,err,function(err){
         if(err) throw err;
-        console.log("[done] write to:"+url_manager_log_filename);
+        console.log("[done] write to:"+url_manager_log+'/'+err_filename);
     });
 });
 
@@ -138,14 +151,15 @@ function detectExpireSeeds()
     });
 
     console.log("[start] writing...");
-    fs.writeFile(expire_filename,expire_list,function(err){
+    fs.writeFile(expire_log+'/'+expire_filename,expire_list,function(err){
         if(err) throw err;
-        console.log("[done] write to:"+expire_filename);
+        console.log("[done] write to:"+expire_log+'/'+expire_filename);
     });
 }
 
 //----------------
-
+/* for everyone who has illegal bot key
+//----------------
 /*---------for url manage--------------
  * for data bot
  - search an id 
@@ -154,7 +168,7 @@ function detectExpireSeeds()
  -ids ex:12345:2016....
  -notice: this API CAN't BE used to delete or insert seed
  --------------------------------------*/
-app.get('/fbjob/:key/v1.0/databot/:action(search|update)/:country?',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/databot/:action(search|update)/:country?',function(req,res){
     var key = req.params.key;
     if(!map_botkey.has(key)){
         res.send("illegal request");
@@ -193,7 +207,7 @@ app.get('/fbjob/:key/v1.0/databot/:action(search|update)/:country?',function(req
  - ids=id1:c1,id2:c2...
  -notice: this API CAN't BE used to delete or insert seed
  --------------------------------------*/
-app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/seedbot/update/:country?',function(req,res){
     var i,j,k;
     var key = req.params.key;
     var country = req.params.country;
@@ -247,7 +261,7 @@ app.get('/fbjob/:key/v1.0/seedbot/update/:country?',function(req,res){
      a set of id
      */
 /*------insert new seed--------*/
-app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/insertseed/',function(req,res){
     var i,j;
     var key = req.params.key;
     if(!map_botkey.has(key)){
@@ -411,7 +425,7 @@ app.get('/fbjob/:key/v1.0/insertseed/',function(req,res){
      a set of id
      */
 /*------delete seed--------*/
-app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/deleteseed/',function(req,res){
     var i,j;
     var key = req.params.key;
     if(!map_botkey.has(key)){
@@ -456,7 +470,7 @@ app.get('/fbjob/:key/v1.0/deleteseed/',function(req,res){
  - for seeds bot
  */
 /*------get a set of seed to crawler--------*/
-app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/getseed/:type(databot|seedbot)/:country?',function(req,res){
     var key = req.params.key;
     var type = req.params.type;
     var country = req.params.country;
@@ -627,6 +641,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
     var result="";
     var run_index=0;
     var next_index=-1;
+    var current_time='';
     var j=0;
     if(country=="Taiwan"){
         if(all_crawled==1){
@@ -642,6 +657,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                 if(all_crawled==0){
                     if(value=="y"){
                         if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""){
+
                             if(j!=0){
                                 result+=","+key;
                             }
@@ -675,13 +691,14 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                 if(all_crawled==0){
                     if(value=="y"||value=="c"){
                         if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                            current_time = map_key.get(key);
                             let now = new Date();
                             processing.set(key,now);
                             if(j!=0){
-                                result+=","+key;
+                                result+=","+key+':'+current_time;
                             }
                             else{
-                                result+=key;
+                                result+=key+':'+current_time;
                             }
                             j++;
                         }
@@ -694,13 +711,14 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                 }
                 else if(all_crawled==1){
                     if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                        current_time = map_key.get(key);
                         let now = new Date();
                         processing.set(key,now);
                         if(j!=0){
-                            result+=","+key;
+                            result+=","+key+':'+current_time;
                         }
                         else{
-                            result+=key;
+                            result+=key+':'+current_time;
                         }
                         j++;
                     }
@@ -713,7 +731,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
             }
         }
         if(result==""){
-            result="none";
+            result="none:none";
         }
         res.send(result);
 
@@ -797,13 +815,14 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                 if(all_crawled==0){
                     if(value=="y"||value=="c"){
                         if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                            current_time = foreign_map_key.get(key);
                             let now = new Date();
                             processing.set(key,now);
                             if(j!=0){
-                                result+=","+key;
+                                result+=","+key+':'+current_time;
                             }
                             else{
-                                result+=key;
+                                result+=key+':'+current_time;
                             }
                             j++;
                         }
@@ -816,13 +835,14 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
                 }
                 else if(all_crawled==1){
                     if(key.indexOf(" ")==-1&&typeof key!=="undefined"&&key!=""&&!processing.has(key)){
+                        current_time = foreign_map_key.get(key);
                         let now = new Date();
                         processing.set(key,now);
                         if(j!=0){
-                            result+=","+key;
+                            result+=","+key+':'+current_time;
                         }
                         else{
-                            result+=key;
+                            result+=key+':'+current_time;
                         }
                         j++;
                     }
@@ -836,7 +856,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
         }
 
         if(result==""){
-            result="none";
+            result="none:none";
         }
         res.send(result);
 
@@ -873,7 +893,7 @@ app.get('/fbjob/:key/v1.0/getseed/:type(databot|seedbot)/:country?',function(req
  - list:will use type, not use ids
  */
 /*-------listing and searching url list-----------*/
-app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:country?',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/urllist/:type(seedbot|databot)/:action(list|search)/:country?',function(req,res){
     var key = req.params.key;
     var type = req.params.type;
     var action = req.params.action;
@@ -937,7 +957,7 @@ app.get('/fbjob/:key/v1.0/urllist/:type(seedbot|databot)/:action(list|search)/:c
  - list:list all address I have in Taiwan
  */
 /*-------listing and searching url list-----------*/
-app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/tw_address/:action(list|search)/',function(req,res){
     var key = req.params.key;
     var action = req.params.action;
     var i,j,k;
@@ -971,19 +991,16 @@ app.get('/fbjob/:key/v1.0/tw_address/:action(list|search)/',function(req,res){
         }
     }
 });
-/*(not yet)for new a bot action, bot manager*/
-app.get('/fbjob/:key/oceangaisbot/v1.0/newbot/',function(req,res){
-    var key = req.params.key;
-    if(!map_botkey.has(key)){
-        res.send("illegal request");
-        return;
-    }
-});
+//-----------------------
+/* manager only API:
+    -need manager_key to control these API
+*/
+//-----------------------
 /*force store id_manage*/
-app.get('/fbjob/:key/update/:config(list|tw_address)/v1.0/',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/update/:config(list|tw_address)',function(req,res){
     var key = req.params.key;
     var config = req.params.config;
-    if(!map_botkey.has(key)){
+    if(key!=manager_key){
         res.send("illegal request");
         return;
     }
@@ -997,8 +1014,48 @@ app.get('/fbjob/:key/update/:config(list|tw_address)/v1.0/',function(req,res){
         res.send("tw_address has updated");
     }
 });
+
+/*(not yet)bot manager*/
+app.get('/'+server_name+'/:key/'+server_version+'/:action(new|delete|clearall)',function(req,res){
+    var key = req.params.key;
+    var action = req.params.actoin;
+    var id = req.query.id;
+    var stat = req.query.stat;
+    if(key!=manager_key){
+        res.send("illegal request");
+    }
+    else{
+        if(action=='new'){
+            insertBotID(id,stat,(flag,back_id,err_msg)=>{
+                if(flag=='error'){
+                    console.log('[insertBotID] ['+back_id+'] error:'+err_msg)
+                    res.send(flag);
+                }
+                else{
+                    res.send(back_id);
+                }
+            });
+        }
+        else if(action=='delete'){
+            deleteBotID(id,stat,(flag,back_id,err_msg)=>{
+                if(flag=='error'){
+                    console.log('[deleteBotID] ['+back_id+'] error:'+err_msg)
+                    res.send(flag);
+                }
+                else{
+                    res.send(back_id);
+                }
+            });
+        }
+        else if(action=='clearall'){
+            clearAllBotID();
+            console.log('[clearAllBotID] clear all bot key');
+            res.send('clearall');
+        }
+    }
+});
 /*(not yet)temp tool, controling crawled type, ex:page,user,group*/
-app.get('/fbjob/:key/grab_list/:action(search|insert|delete)/v1.0/',function(req,res){
+app.get('/'+server_name+'/:key/'+server_version+'/grab_list/:action(search|insert|delete)',function(req,res){
     //group,page,user
     var key = req.params.key;
     var action = req.params.action;
@@ -1020,7 +1077,7 @@ function updateseedid(country,str,id,fin){
     //console.log("process:"+id+","+str+"\n--");
     var result="";
     if(country=="Taiwan"){
-        if(!map_key.has(id)){//if id not exists, then skip it, if want to insert new seed id must use /v1.0/insertseed/ api
+        if(!map_key.has(id)){//if id not exists, then skip it, if want to insert new seed id must use /'+server_version+'/insertseed/ api
             //console.log("not exists:"+id+","+str+"\n--");
             result = "not exists:"+id+","+str+"\n--";
         }
@@ -1048,7 +1105,7 @@ function updateseedid(country,str,id,fin){
     }
 
     else{
-        if(!foreign_map_key.has(id)){//if id not exists, then skip it, if want to insert new seed id must use /v1.0/insertseed/ api
+        if(!foreign_map_key.has(id)){//if id not exists, then skip it, if want to insert new seed id must use /'+server_version+'/insertseed/ api
             //console.log("not exists:"+id+","+str+"\n--");
             result = "not exists:"+id+","+str+"\n--";
         }
@@ -1100,7 +1157,7 @@ function datamanageid(country,action,ids,fin){
                 continue;
             }
             if(country=="Taiwan"){
-                if(!map_key.has(parts_id)){//if id not exists, then skip it, if want to insert new seed id must use /v1.0/insertseed/ api
+                if(!map_key.has(parts_id)){//if id not exists, then skip it, if want to insert new seed id must use /'+server_version+'/insertseed/ api
                     stat+="\nnot exist:id["+parts_id+"] to "+country;
                     continue;
                 }
@@ -1119,7 +1176,7 @@ function datamanageid(country,action,ids,fin){
                 }
             }
             else{
-                if(!foreign_map_key.has(parts_id)){//if id not exists, then skip it, if want to insert new seed id must use /v1.0/insertseed/ api
+                if(!foreign_map_key.has(parts_id)){//if id not exists, then skip it, if want to insert new seed id must use /'+server_version+'/insertseed/ api
 
                     stat+="\nnot exist:id["+parts_id+"] to "+country;
                     continue;
@@ -1190,7 +1247,7 @@ function ReadTWaddress(){
         //encoding: 'utf8',
         skipEmptyLines:false
     }
-    var lr = new LineByLineReader(tw_address_filename,options);
+    var lr = new LineByLineReader(dictionary+'/'+tw_address_filename,options);
     iconv.skipDecodeWarning = true;
     lr.on('error', function (err) {
         // 'err' contains error object
@@ -1264,7 +1321,7 @@ function ReadID(){
         //encoding: 'utf8',
         skipEmptyLines:false
     }
-    var lr = new LineByLineReader(filename,options);
+    var lr = new LineByLineReader(id_record+'/'+filename,options);
     iconv.skipDecodeWarning = true;
     lr.on('error', function (err) {
         // 'err' contains error object
@@ -1291,7 +1348,7 @@ function ReadForeignID(){
         //encoding: 'utf8',
         skipEmptyLines:false
     }
-    var lr = new LineByLineReader(foreign_filename,options);
+    var lr = new LineByLineReader(id_record+'/'+foreign_filename,options);
     iconv.skipDecodeWarning = true;
     lr.on('error', function (err) {
         // 'err' contains error object
@@ -1313,25 +1370,30 @@ function ReadForeignID(){
     });
 
 }
-function ReadBotID(){
-    var key="",name="";
-    var i;
-    var type;
-    map_botkey.clear();
-    for(i=0;i<service["data"].length;i++){
-        key = service["data"][i]["key"];
-        name = service["data"][i]["name"];
-        console.log("bot:"+key+" name:"+name);
-        map_botkey.set(key,name);
-    }
-    for(i=0;i<service["grab_type"].length;i++){
-        type = service["grab_type"][i]["type"];
-        console.log("type:"+type);
-        map_grabtype.set(type,1);//ON 1, OFF 0
-    }
 
+function insertBotID(key,stat,fin){
+    if(map_botkey.has(key)){
+        fin('error',key,'exist');
+    }
+    else{
+        map_botkey.set(key,stat);
+        fin('insert',key,'');
+    }
+}
+function deleteBotID(key,stat){
+    if(!map_botkey.has(key)){
+        fin('error',key,'not exist');
+    }
+    else{
+        map_botkey.remove(key,stat);
+        fin('delete',key,'');
+    }
 
 }
+function clearAllBotID(){
+    map_botkey.clear();
+}
+
 function clearID(){
     var result="";
     var foreign_result="";
@@ -1346,9 +1408,9 @@ function clearID(){
         }
     });
     console.log("[start] writing...");
-    fs.writeFile(filename,result,function(err){
+    fs.writeFile(id_record+'/'+filename,result,function(err){
         if(err) throw err;
-        console.log("[done] write to:"+filename);
+        console.log("[done] write to:"+id_record+'/'+filename);
     });
     map_size = map_key.count();
 
@@ -1363,10 +1425,29 @@ function clearID(){
         }
     });
     console.log("[start] writing...");
-    fs.writeFile(foreign_filename,foreign_result,function(err){
+    fs.writeFile(id_record+'/'+foreign_filename,foreign_result,function(err){
         if(err) throw err;
-        console.log("[done] write to:"+foreign_filename);
+        console.log("[done] write to:"+id_record+'/'+foreign_filename);
     });
     foreign_map_size = foreign_map_key.count();
 }
 
+/*(not yet)*/
+function write2Log(type,msg)
+{
+    var now = new Date();
+    var dir = '';
+    var file_date = dateFormat(now,'yyyymmdd');
+    if(type=='error'){
+        dir=url_manager_log+'/'+file_date+'_'+err_filename;
+    }
+    else if(type=='expire'){
+        dir=expire_log+'/'+file_date+'_'+expire_filename;
+    }
+    else if(type=='process'){
+        dir=process_log+'/'+file_date+'_'+process_filename;
+    }
+    fs.appendFile(dir,'['+now+'] ['+type+'] '+msg+'\n',function(err){
+        if(err) throw err;
+    });
+}
