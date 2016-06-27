@@ -18,6 +18,8 @@ class MyEmitter extends EventEmitter {}
 
 /*-----------init seed, reading setting--------------*/
 var service1 = JSON.parse(fs.readFileSync('./service/seeds'));
+var seed_service_name = service1['seed_service_name'];
+var seed_service_version = service1['seed_service_version'];
 var fields = service1['fields'];
 var version = service1['version'];
 var appid = service1['id'];
@@ -33,6 +35,7 @@ var seed_require_Interval = service1['seed_require_Interval'];
 var old_seed_limit = service1['old_seed_limit'];
 var retryTime = service1['retryTime'];
 var timeout_retryTime = service1['timeout_retryTime']
+var retry_limit = service['retry_limit'];
 var tw_address_filename = service1['tw_address'];
 var seed_log = service1['seed_log'];
 var err_filename = service1['err_filename'];
@@ -43,6 +46,7 @@ var group_filename = service1['group_filename'];
 
 var jump_index=-1;
 var old_check=0;
+var retry_cnt=0;
 
 const myEmitter = new MyEmitter();
 myEmitter.on('requireSeed', () => {
@@ -78,7 +82,7 @@ requireSeed(require_num,from_seedIndex);
 
 function requireSeed(num,from_index){
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/getseed/seedbot/'+country+'/?num='+num+'&from='+from_index,
+        uri:'http://'+id_serverip+':'+id_serverport+'/'+seed_service_name+'/'+key+'/'+seed_service_version+'/getseed/seedbot/'+country+'/?num='+num+'&from='+from_index,
         timeout: 10000
     },function(error, response, body){
         if(!error&&response.statusCode==200){
@@ -89,17 +93,22 @@ function requireSeed(num,from_index){
             }
             else if(typeof body==="undefined"){
                 console.log("[requireSeed=>body=undefined]");
-                setTimeout(()=>{
-                    requireSeed(num,from_index);
-                },retryTime*1000);
-                return;
+                retry_cnt++;
+                if(retry_cnt<retry_limit){
+                    setTimeout(()=>{
+                        requireSeed(num,from_index);
+                    },retryTime*1000);
+                    return;
+                }
+
             }
 
             getSeed(body,appid+"|"+yoyo,function(result){
                 if(result!="error"&&result!="none"){
-                    insertSeed(result,function(stat){//error,old,full,{id1,ids2...}
+                    insertSeed(result,function(stat,result,err_msg){//error,old,full,{id1,ids2...}
                         if(stat=='error'){
-                            console.log('[getSeed] error occur, see '+seed_log);           
+                            console.log('[insertSeed] error occur, see '+seed_log);           
+                            writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+result+"] insertSeed:"+err_msg+"\n--",'append');
                         }
                         else if(stat=='full'||stat=='stop'){
 
@@ -128,11 +137,15 @@ function requireSeed(num,from_index){
         }
         else{
             if(error){
-                console.log("error:"+error);
+                console.log("[getSeed] error:"+error.code);
                 if(error.code.indexOf('TIMEDOUT')!=-1){
-                    setTimeout(function(){
-                        requireSeed(num,from_index);
-                    },timeout_retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(function(){
+                            requireSeed(num,from_index);
+                        },timeout_retryTime*1000);
+
+                    }
                 }
                 else{
                     writeLog(seed_log+'/'+country+'_'+err_filename,"--\n[requireSeed] "+error+"\n--",'append');
@@ -141,9 +154,13 @@ function requireSeed(num,from_index){
             else{
                 if(response.statusCode>=500&&response.statusCode<600){
                     console.log('retry [requireSeed]:'+response.statusCode);
-                    setTimeout(()=>{
-                        requireSeed(num,from_index);
-                    },retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(()=>{
+                            requireSeed(num,from_index);
+                        },retryTime*1000);
+
+                    }
                 }
                 else{
                     console.log('[requireSeed]:'+response.statusCode);
@@ -176,149 +193,107 @@ function getSeed(groupid,token,fin){
                     fin("error");
                 }
                 else{
-                    /*
-                    if(feeds['error']){
-                        console.log("getSeed error:"+feeds['error']['message']);
-                        if(feeds['error']['message']=="(#4) Application request limit reached"){
-                            console.log("Application request limit reached:"+graph_request);
-                            writeLog(seed_log+'/'+country+'_'+err_filename,groupid,'append');
-                        }
-                        else if(feeds['error']['message'].indexOf("(#100)")!=-1){//is User or is built with fb, or is not fan page(may be applaction)
-                            writeLog(seed_log+'/'+country+'_'+deleteID_filename,groupid,'append');
-                        }
-                        else if(feeds['error']['message'].indexOf("was migrated to page ID")!=-1){
-                            writeLog(seed_log+'/'+country+'_'+migratedID_filename,feeds['error']['message'],'append');
-                            var d_seed,n_seed;
-                            d_seed = S(feeds['error']['message']).between('Page ID ',' was').s;
-                            n_seed = S(feeds['error']['message']).between('page ID ','.').s;
-                            deleteSeed(d_seed,function(stat){
-                            });                                                                         
-                            insertSeed(n_seed,function(stat){//error,old,full,{id1,ids2...}
-                                if(stat=='error'){
-                                    console.log('error occur, see '+seed_log);           
-                                }
-                                else if(stat=='full'){
-
-                                }
-                                else if(stat=='old'){
-
-                                }
-                                else{
-                                    console.log("insert seed:"+stat);
-                                }
-                            });
-                        }
-                        else{
-                            writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+feeds['error']['message']+"\n--",'append');
-                        }
-                        fin("error");
+                    var count_seeds=0;
+                    updateidServer(groupid,"c");
+                    var len = Object.keys(feeds).length;
+                    var page_name="";
+                    var dot_flag=0;
+                    var i,j,k;
+                    if(len==0){
+                        fin("none");
+                        return;
                     }
-                    */
-                    //else{
-                        var count_seeds=0;
-                        updateidServer(groupid,"c");
-                        var len = Object.keys(feeds).length;
-                        var page_name="";
-                        var dot_flag=0;
-                        var i,j,k;
-                        if(len==0){
-                            fin("none");
-                            return;
-                        }
 
-                        var ids="";
-                        for(j=0;j<len;j++){
-                            page_name = Object.keys(feeds)[j];
-                            for(i=0;i<feeds[page_name]['data'].length;i++){
-                                if(feeds[page_name]['data'][i]['is_community_page']===true||feeds[page_name]['data'][i]['is_community_page']=="true"){
-                                    writeLog(seed_log+'/'+country+'_'+deleteID_filename,feeds[page_name]['data'][i]['id'],'append');
-                                    deleteSeed(feeds[page_name]['data'][i]['id'],function(stat){
-                                        /*
-                                        if(stat!='error'&&stat!=''){
-                                            console.log('delete seed:'+stat);
-                                        }
-                                        */
-                                    });
-                                    continue;
+                    var ids="";
+                    for(j=0;j<len;j++){
+                        page_name = Object.keys(feeds)[j];
+                        for(i=0;i<feeds[page_name]['data'].length;i++){
+                            if(feeds[page_name]['data'][i]['is_community_page']===true||feeds[page_name]['data'][i]['is_community_page']=="true"){
+                                writeLog(seed_log+'/'+country+'_'+deleteID_filename,feeds[page_name]['data'][i]['id'],'append');
+                                deleteSeed(feeds[page_name]['data'][i]['id'],function(stat,result,err_msg){
+                                    if(stat=='error'){
+                                        writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+result+"] deleteSeed:"+err_msg+"\n--",'append');
+                                    }
+                                });
+                                continue;
+                            }
+                            else{
+                                var loca="Other",real_loca="";
+                                if(typeof feeds[page_name]['data'][i]['location'] !=="undefined"){
+                                    if(typeof feeds[page_name]['data'][i]['location']['country']!== "undefined"){
+                                        loca = feeds[page_name]['data'][i]['location']['country'];
+
+                                    }
+                                    else if(typeof feeds[page_name]['data'][i]['location']['city']!=="undefined"){
+                                        loca = feeds[page_name]['data'][i]['location']['city'];
+                                    }
+                                    else if(typeof feeds[page_name]['data'][i]['location']['street']!=="undefined"){
+                                        loca = feeds[page_name]['data'][i]['location']['street'];
+                                    }
                                 }
-                                else{
-                                    var loca="Other",real_loca="";
-                                    if(typeof feeds[page_name]['data'][i]['location'] !=="undefined"){
-                                        if(typeof feeds[page_name]['data'][i]['location']['country']!== "undefined"){
-                                            loca = feeds[page_name]['data'][i]['location']['country'];
 
-                                        }
-                                        else if(typeof feeds[page_name]['data'][i]['location']['city']!=="undefined"){
-                                            loca = feeds[page_name]['data'][i]['location']['city'];
-                                        }
-                                        else if(typeof feeds[page_name]['data'][i]['location']['street']!=="undefined"){
-                                            loca = feeds[page_name]['data'][i]['location']['street'];
-                                        }
-                                    }
+                                real_loca=loca;
 
-                                    real_loca=loca;
-                                    
-                                    if(typeof feeds[page_name]['data'][i]['name']!=="undefined"){
-                                        var ischt = feeds[page_name]['data'][i]['name'].match(/[\u4e00-\u9fa5]/ig);//this will include chs
-                                        if(ischt!=null){
-                                            loca="Taiwan";
-                                        }
-                                    }
-
-                                    var ischt = loca.match(/[\u4e00-\u9fa5]/ig);
+                                if(typeof feeds[page_name]['data'][i]['name']!=="undefined"){
+                                    var ischt = feeds[page_name]['data'][i]['name'].match(/[\u4e00-\u9fa5]/ig);//this will include chs
                                     if(ischt!=null){
                                         loca="Taiwan";
                                     }
-                                    else{
-                                        var loca_temp = loca.replace(/[0-9]/g,"");
-                                        loca_temp = loca_temp.replace("~","");
-                                        loca_temp = loca_temp.replace(":","");
-                                        loca_temp = loca_temp.replace(/ /g,"");
-                                        var small_loca1 = S(loca_temp).left(3).s;
-                                        var small_loca2 = S(loca_temp).left(2).s;
-                                        if(map_tw_address.get(loca_temp)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
-                                            loca='Taiwan';
-                                        }
-                                    }
-                                    
-                                    if(loca!='Taiwan'){
-                                        loca='Other';
-                                    }
+                                }
 
-
-                                    var info = feeds[page_name]['data'][i];
-                                    if(typeof info['insights']!=='undefined'){
-                                        if(typeof info['insights']['data'][0]['values'][info['insights']['data'][0]['values'].length-1]['value']!=='undefined'){
-
-                                            var value = parseInt(info['insights']['data'][0]['values'][info['insights']['data'][0]['values'].length-1]['value']['TW']);
-                                            if(typeof value!=='undefined'){
-                                                var total_likes=parseInt(info['likes']);
-                                                var percent = value/total_likes;
-                                                if(percent>0.5){
-                                                    loca='Taiwan';
-                                                }
-                                                
-                                            }
-                                        }
-                                    }
-
-                                    recordNewSeeds(loca,real_loca,feeds[page_name]['data'][i]);
-
-                                    count_seeds++;
-                                    if(ids==""){
-                                        ids += feeds[page_name]['data'][i]['id'];
-                                        ids+=":"+loca;
-                                    }
-                                    else{
-                                        ids += "~"+feeds[page_name]['data'][i]['id'];
-                                        ids+=":"+loca;
+                                var ischt = loca.match(/[\u4e00-\u9fa5]/ig);
+                                if(ischt!=null){
+                                    loca="Taiwan";
+                                }
+                                else{
+                                    var loca_temp = loca.replace(/[0-9]/g,"");
+                                    loca_temp = loca_temp.replace("~","");
+                                    loca_temp = loca_temp.replace(":","");
+                                    loca_temp = loca_temp.replace(/ /g,"");
+                                    var small_loca1 = S(loca_temp).left(3).s;
+                                    var small_loca2 = S(loca_temp).left(2).s;
+                                    if(map_tw_address.get(loca_temp)||map_tw_address.get(small_loca1)||map_tw_address.get(small_loca2)){
+                                        loca='Taiwan';
                                     }
                                 }
 
+                                if(loca!='Taiwan'){
+                                    loca='Other';
+                                }
+
+
+                                var info = feeds[page_name]['data'][i];
+                                if(typeof info['insights']!=='undefined'){
+                                    if(typeof info['insights']['data'][0]['values'][info['insights']['data'][0]['values'].length-1]['value']!=='undefined'){
+
+                                        var value = parseInt(info['insights']['data'][0]['values'][info['insights']['data'][0]['values'].length-1]['value']['TW']);
+                                        if(typeof value!=='undefined'){
+                                            var total_likes=parseInt(info['likes']);
+                                            var percent = value/total_likes;
+                                            if(percent>0.5){
+                                                loca='Taiwan';
+                                            }
+
+                                        }
+                                    }
+                                }
+
+                                recordNewSeeds(loca,real_loca,feeds[page_name]['data'][i]);
+
+                                count_seeds++;
+                                if(ids==""){
+                                    ids += feeds[page_name]['data'][i]['id'];
+                                    ids+=":"+loca;
+                                }
+                                else{
+                                    ids += "~"+feeds[page_name]['data'][i]['id'];
+                                    ids+=":"+loca;
+                                }
                             }
 
                         }
-                    //}
+
+                    }
                     console.log('--Fecth expand seeds:'+count_seeds+'--');
                     fin(ids);
                 }
@@ -326,11 +301,14 @@ function getSeed(groupid,token,fin){
         }
         else{
             if(error){
-                console.log("error:"+error);
+                console.log("[getSeed] error:"+error.code);
                 if(error.code.indexOf('TIMEDOUT')!=-1){
-                    setTimeout(function(){
-                        getSeed(groupid,token,fin);
-                    },timeout_retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(function(){
+                            getSeed(groupid,token,fin);
+                        },timeout_retryTime*1000);
+                    }
                 }
                 else{
                     writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+groupid+"] getSeed:"+error+"\n--",'append');
@@ -340,9 +318,12 @@ function getSeed(groupid,token,fin){
             else{
                 if(response.statusCode>=500&&response.statusCode<600){
                     console.log('retry [getSeed]:'+response.statusCode);
-                    setTimeout(()=>{
-                        getSeed(groupid,token,fin);
-                    },retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(()=>{
+                            getSeed(groupid,token,fin);
+                        },retryTime*1000);
+                    }
                 }
                 else{
                     if(typeof body!=='undefined'){
@@ -377,18 +358,21 @@ function getSeed(groupid,token,fin){
                                     var new_groupid = groupid.replace(d_seed,n_seed);
                                     getSeed(new_groupid,token,fin);
 
-                                    deleteSeed(d_seed,function(stat){
-                                        if(stat='error'){
-                                            fin("error");
+                                    deleteSeed(d_seed,function(stat,result,err_msg){
+                                        if(stat=='error'){
+                                            console.log('[deleteSeed] error occur, see '+seed_log);           
+                                            writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+result+"] deleteSeed:"+err_msg+"\n--",'append');
+                                            fin(stat);
                                         }
-                                    });                                                                         
-                                    insertSeed(n_seed,function(stat){//error,old,full,{id1,ids2...}
+                                    });
+                                    insertSeed(n_seed,function(stat,result,err_msg){//error,old,full,{id1,ids2...}
                                         if(stat=='error'){
                                             console.log('[insertSeed] error occur, see '+seed_log);           
+                                            writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+result+"] insertSeed:"+err_msg+"\n--",'append');
                                             fin("error");
                                         }
-                                        else if(stat=='full'){
-                                            fin("error");
+                                        else if(stat=='full'||stat=='stop'){
+                                            fin('error');
                                         }
                                         else if(stat=='old'){
                                         }
@@ -434,7 +418,7 @@ function updateidServer(ids,mark)
     }
 
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/seedbot/update/'+country+'/?ids='+ids_send,
+        uri:'http://'+id_serverip+':'+id_serverport+'/'+seed_service_name+'/'+key+'/'+seed_service_version+'/seedbot/update/'+country+'/?ids='+ids_send,
         timeout: 10000
     },function(error, response, body){
         if(!error&&response.statusCode==200){
@@ -445,11 +429,15 @@ function updateidServer(ids,mark)
         }
         else{
             if(error){
-                console.log("error:"+error);
+                console.log("[updateidServer] error:"+error.code);
                 if(error.code.indexOf('TIMEDOUT')!=-1){
-                    setTimeout(function(){
-                        updateidServer(ids,mark);
-                    },timeout_retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(function(){
+                            updateidServer(ids,mark);
+                        },timeout_retryTime*1000);
+
+                    }
                 }
                 else{
                     writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] updateidServer:"+error+"\n--",'append');
@@ -458,9 +446,13 @@ function updateidServer(ids,mark)
             else{
                 if(response.statusCode>=500&&response.statusCode<600){
                     console.log('retry [updateidServer]:'+response.statusCode);
-                    setTimeout(()=>{
-                        updateidServer(ids,mark);
-                    },retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(()=>{
+                            updateidServer(ids,mark);
+                        },retryTime*1000);
+
+                    }
                 }
                 else{
                     console.log('[updateidServer]:'+response.statusCode);
@@ -476,63 +468,74 @@ function insertSeed(ids,fin){
     var temp_ids = querystring.stringify({ids:ids});
     //console.log(temp_ids);
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?'+temp_ids,
+        uri:'http://'+id_serverip+':'+id_serverport+'/'+seed_service_name+'/'+key+'/'+seed_service_version+'/insertseed/?'+temp_ids,
         timeout: 10000
     },function(error, response, body){
+        var err_msg='';
         if(!error&&response.statusCode==200){
             if(body=="illegal request"){//url request error
                 console.log("insertSeed:"+body);
-                writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+body+"\n--",'append');
-                fin("error");
+                //writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+body+"\n--",'append');
+                err_msg=body;
+                fin("error",ids,err_msg);
             }
             else if(body==""){//all already exist.
                 old_check++;
                 console.log("[all exist] old check:"+old_check);
                 if(old_seed_limit<old_check){
                     console.log('reached old_seed_limit:'+old_seed_limit);
-                    fin('stop');
+                    fin('stop',ids,'');
                 }
                 else{
-                    fin('old');
+                    fin('old',ids,'');
                 }
 
             }
             else if(body=="full"){
                 console.log("insertSeed:url map is full, can't insert any seeds.");
                 writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+body+"\n--",'append');
-                fin("full");
+                fin("full",ids,'');
             }
             else{
                 var parts=body.split(',');
                 var seeds_len = parts.length;
                 console.log('--Success insert seeds:'+seeds_len);
-                fin(body);
+                fin('insert',body,'');
             }
         }
         else{
             if(error){
-                console.log("error:"+error);
+                console.log("[insertSeed] error:"+error.code);
                 if(error.code.indexOf('TIMEDOUT')!=-1){
-                    setTimeout(function(){
-                        insertSeed(ids,fin);
-                    },timeout_retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(function(){
+                            insertSeed(ids,fin);
+                        },timeout_retryTime*1000);
+
+                    }
                 }
                 else{
-                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+error+"\n--",'append');
-                    fin('error');
+                    //writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+error+"\n--",'append');
+                    err_msg=error;
+                    fin('error',ids,err_msg);
                 }
             }
             else{
                 if(response.statusCode>=500&&response.statusCode<600){
                     console.log('retry [insertSeed]:'+response.statusCode);
-                    setTimeout(()=>{
-                        insertSeed(ids,fin);
-                    },retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(()=>{
+                            insertSeed(ids,fin);
+                        },retryTime*1000);
+
+                    }
                 }
                 else{
                     console.log('[insertSeed]:'+response.statusCode);
-                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] insertSeed:"+response.statusCode+"\n--",'append');
-                    fin('error');
+                    err_msg=response.statusCode;
+                    fin('error',ids,err_msg);
                 }
             }
         }
@@ -546,14 +549,16 @@ function insertSeed(ids,fin){
 function deleteSeed(ids,fin){
     var temp_ids = querystring.stringify({ids:ids});
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/deleteseed/?'+temp_ids,
+        uri:'http://'+id_serverip+':'+id_serverport+'/'+seed_service_name+'/'+key+'/'+seed_service_version+'/deleteseed/?'+temp_ids,
         timeout: 10000
     },function(error, response, body){
+        var err_msg='';
         if(!error&&response.statusCode==200){
             if(body=="illegal request"){//url request error
                 console.log("deleteSeed:"+body);
-                writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+body+"\n--",'append');
-                fin("error");
+                //writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+body+"\n--",'append');
+                err_msg=body;
+                fin("error",ids,err_msg);
             }
             else{
                 /*
@@ -561,34 +566,42 @@ function deleteSeed(ids,fin){
                     console.log('delete seed fail:'+ids);
                 }
                 */
-                fin(body);
+                fin('delete',body,'');
             }
         }
         else{
             if(error){
-                console.log("error:"+error);
-
+                console.log("[deleteSeed] error:"+error.code);
                 if(error.code.indexOf('TIMEDOUT')!=-1){
-                    setTimeout(function(){
-                        deleteSeed(ids,fin);
-                    },timeout_retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(function(){
+                            deleteSeed(ids,fin);
+                        },timeout_retryTime*1000);
+
+                    }
                 }
                 else{
-                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+error+"\n--",'append');
-                    fin('error');
+                    err_msg=error;
+                    //writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+error+"\n--",'append');
+                    fin("error",ids,err_msg);
                 }
             }
             else{
                 if(response.statusCode>=500&&response.statusCode<600){
-                    console.log('retry [getSeed]:'+response.statusCode);
-                    setTimeout(()=>{
-                        deleteSeed(ids,fin);
-                    },retryTime*1000);
+                    console.log('retry [deleteSeed]:'+response.statusCode);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(()=>{
+                            deleteSeed(ids,fin);
+                        },retryTime*1000);
+
+                    }
                 }
                 else{
                     console.log('[deleteSeed]:'+response.statusCode);
-                    writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+response.statusCode+"\n--",'append');
-                    fin('error');
+                    //writeLog(seed_log+'/'+country+'_'+err_filename,"--\n["+ids+"] deleteSeed:"+response.statusCode+"\n--",'append');
+                    fin("error",ids,err_msg);
                 }
             }
         }
@@ -601,8 +614,8 @@ function recordNewSeeds(loca,real_loca,info){
     var temp_ids = querystring.stringify({ids:id});
     request({
         //method:'POST',
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/urllist/seedbot/search/'+loca+'?'+temp_ids,
-        //uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/insertseed/?ids='+ids,
+        uri:'http://'+id_serverip+':'+id_serverport+'/'+seed_service_name+'/'+key+'/'+seed_service_version+'/urllist/seedbot/search/'+loca+'?'+temp_ids,
+        //uri:'http://'+id_serverip+':'+id_serverport+'/'+seed_service_name+'/'+key+'/'+seed_service_version+'/insertseed/?ids='+ids,
         timeout: 10000
     },function(error, response, body){
         if(!error&&response.statusCode==200){
@@ -693,12 +706,16 @@ function recordNewSeeds(loca,real_loca,info){
         }
         else{
             if(error){
-                console.log("error:"+error);
+                console.log("[recordNewSeeds] error:"+error.code);
 
                 if(error.code.indexOf('TIMEDOUT')!=-1){
-                    setTimeout(function(){
-                        recordNewSeeds(loca,real_loca,info);
-                    },timeout_retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(function(){
+                            recordNewSeeds(loca,real_loca,info);
+                        },timeout_retryTime*1000);
+
+                    }
                 }
                 else{
                     writeLog(seed_log+'/'+loca+'_'+err_filename,"--\n["+id+"] recordNewSeeds:"+error+"\n--",'append');
@@ -707,9 +724,13 @@ function recordNewSeeds(loca,real_loca,info){
             else{
                 if(response.statusCode>=500&&response.statusCode<600){
                     console.log('retry [recordNewSeeds]:'+response.statusCode);
-                    setTimeout(()=>{
-                        recordNewSeeds(loca,real_loca,info);
-                    },retryTime*1000);
+                    retry_cnt++;
+                    if(retry_cnt<retry_limit){
+                        setTimeout(()=>{
+                            recordNewSeeds(loca,real_loca,info);
+                        },retryTime*1000);
+
+                    }
                 }
                 else{
                     console.log('[recordNewSeeds]:'+response.statusCode);
