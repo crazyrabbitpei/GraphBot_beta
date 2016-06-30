@@ -22,25 +22,27 @@ exports.Bot_runStatus=Bot_runStatus;
 
 
 try {
-    /*will remove this setting, instead, call bot_manager to get graph API's fetch fields and some crawler setting also seed manager's key*/
+    /*will remove this setting, instead, call bot_manager to get graph API's fetch fields and some crawler setting also seed manager's key. Include in setting field*/
     var service1 = JSON.parse(fs.readFileSync('./service/shadow'));
+    var id_serverip = service1['id_serverip'];
+    var id_serverport = service1['id_serverport'];
     var limit = service1['limit'];
     var fields = service1['fields'];
-    var reduce_fields = service2['reduce_fields'];
+    var reduce_fields = service1['reduce_fields'];
     var version = service1['version'];
     var country_location = service1['country'];
     var again_time = service1['again_time'];
     var keylimit_reached_again_time = service1['keylimit_reached_again_time'];
     var seed_service_name = service1['seed_service_name'];
     var seed_service_version = service1['seed_service_version'];
-    var crawlerkey = service['crawlerkey'];
     var grab_limit = service1['grab_limit'];
     var limit_retry = service1['limit_retry'];
     
     /*at the end, will only leave this setting*/
     var client_setting = JSON.parse(fs.readFileSync('./service/databot_client.setting'));
-    var bot_managerip = client_setting['bot_managerip'];
-    var bot_managerport = client_setting['bot_managerport'];
+    var bot_serverip = client_setting['bot_serverip'];
+    var bot_serverport = client_setting['bot_serverport'];
+    var invitekey = client_setting['invitekey'];
     var name = client_setting['name'];
     var dir = client_setting['dir'];
     var log = client_setting['log'];
@@ -48,12 +50,12 @@ try {
     var err_filename = client_setting['err_filename'];
     var delete_filename = client_setting['delete_filename'];
 
-    /*will remove this setting, instead, call bot_manager to get graph API's key and seed manager's ip port*/
+    /*will remove this setting, instead, call bot_manager to get graph API's key and seed manager's ip port. Inlcude in botkey and graphkey fields*/
     var service2 = JSON.parse(fs.readFileSync('./service/shadowap'));
     var appid = service2['id'];
     var yoyo = service2['yoyo'];
-    var id_serverip = service2['id_serverip'];
-    var id_serverport = service2['id_serverport'];
+    var crawlerkey = service2['crawlerkey'];
+
     if(process.argv[2]=="1"){
         appid = service2['id1'];
         yoyo = service2['yoyo1'];
