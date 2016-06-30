@@ -217,6 +217,7 @@ function crawlerFB(limit,retryFields,token,groupid,timestamp,key,fin){
                                     return;
                                 }
                             });
+                            fin("none");
                         }
                         else{
                             fin("error:"+feeds['error']['message']);
@@ -498,7 +499,7 @@ function deleteid2Server(key,id_serverip,id_serverport,id,fin){
     let country = myModule.country_location;
     let dir = myModule.dir;
     request({
-        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/deleteseed/?ids='+id,
+        uri:'http://'+id_serverip+':'+id_serverport+'/fbjob/'+key+'/v1.0/deleteseed/databot?ids='+id,
         timeout: 10000
     },function(error, response, body){
         var again_time = myModule.again_time;
@@ -791,6 +792,7 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                             n_seed = S(feeds['error']['message']).between('page ID ','.').s;
 
                             let country = myModule.country_location;
+                            /*
                             deleteid2Server(key,id_serverip,id_serverport,d_seed,function(st,back_id,err_msg){
                                 if(st=="error"){
                                     writeLog('['+back_id+'] error:'+err_msg,'deleteid2Server error','append');
@@ -800,6 +802,7 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                                     writeLog(back_id,'deleteID','append');
                                 }
                             });
+                            */
                             insertid2Server(key,id_serverip,id_serverport,n_seed,country,function(st,back_id,err_msg){
                                 if(st=="error"){
                                     writeLog('['+back_id+'] error:'+err_msg,'insertid2Server error','append');
@@ -807,6 +810,7 @@ function nextPage(limit,retryFields,key,npage,depth_link,token,groupid,end_flag,
                                     return;
                                 }
                             });
+                            fin("none");
                             /*
                             url_manager.deleteSeed(d_seed,function(stat){
                             });
